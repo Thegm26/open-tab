@@ -15,4 +15,10 @@ describe("catalog/server order parity", () => {
     expect(totalForItems("cafe", [{ sku: "dinner", quantity: 1 }])).toBe(780);
     expect(totalForItems("bakery", [{ sku: "lunch", quantity: 1 }])).toBe(450);
   });
+
+  it("keeps multiple cafe lines and computes their aggregate total", () => {
+    const items = canonicalItems("cafe", [{ sku: "dinner", quantity: 1 }, { sku: "toast", quantity: 1 }]);
+    expect(items).toEqual([{ sku: "dinner", quantity: 1 }, { sku: "toast", quantity: 1 }]);
+    expect(totalForItems("cafe", items)).toBe(1280);
+  });
 });

@@ -24,7 +24,14 @@ export class SupabaseOpenTabStore {
     return data as T;
   }
   private scenarioRow(row: any): Scenario { return { id: row.id, currency: "EUR", settledPoolCents: Number(row.settled_pool_cents), activated: row.activated, expiresAt: new Date(row.expires_at), policy: { activationThresholdCents: Number(row.activation_threshold_cents), perOrderLimitCents: Number(row.per_order_limit_cents), deviceDailyLimitCents: Number(row.device_daily_limit_cents), claimLifetimeMs: Number(row.claim_lifetime_seconds) * 1000, authorizationLifetimeMs: Number(row.authorization_lifetime_seconds) * 1000 } }; }
-  private orderRow(row: any): Order { return { id: row.id, scenarioId: row.scenario_id, merchantId: row.merchant_id, totalCents: Number(row.total_cents), openTabCents: Number(row.open_tab_cents), customerTenderCents: Number(row.customer_tender_cents), remainingTenderCents: Number(row.remaining_tender_cents), status: row.status, refundableCents: Number(row.refundable_cents), refundedCents: Number(row.refunded_cents), customerRefundedCents: Number(row.customer_refunded_cents), poolRefundedCents: Number(row.pool_refunded_cents), createdAt: new Date(row.created_at), items: row.items ?? row.line_items ?? undefined }; }
+  private orderRow(row: any): Order {
+    const rawItems = row.items ?? row.line_items;
+    let items = rawItems;
+    if (typeof items === "string") {
+      try { items = JSON.parse(items); } catch { items = undefined; }
+    }
+    return { id: row.id, scenarioId: row.scenario_id, merchantId: row.merchant_id, totalCents: Number(row.total_cents), openTabCents: Number(row.open_tab_cents), customerTenderCents: Number(row.customer_tender_cents), remainingTenderCents: Number(row.remaining_tender_cents), status: row.status, refundableCents: Number(row.refundable_cents), refundedCents: Number(row.refunded_cents), customerRefundedCents: Number(row.customer_refunded_cents), poolRefundedCents: Number(row.pool_refunded_cents), createdAt: new Date(row.created_at), items: Array.isArray(items) && items.length > 0 ? items : undefined };
+  }
   async createOrRecoverScenario(input: { bootstrapSecret: string; idempotencyKey: string }) { if (input.bootstrapSecret.length < 32) throw new DomainError("INVALID_BOOTSTRAP_SECRET"); const out = await this.rpc<{ scenario_id: string }>("ot_bootstrap", { p_bootstrap_hash: hashToken(input.bootstrapSecret), p_bootstrap_secret: input.bootstrapSecret, p_idempotency_key: input.idempotencyKey }); const scenario = await this.getScenario(out.scenario_id); await this.rpc("ot_set_owner_hash", { p_scenario: scenario.id, p_owner_token_hash: hashToken(deriveOwnerToken(scenario.id)) }); return { scenario, ownerToken: deriveOwnerToken(scenario.id), csrfToken: deriveCsrfToken(scenario.id) }; }
   async getScenario(id: string) { const scenario = this.scenarioRow(await this.one("demo_scenarios", id, "SCENARIO_NOT_FOUND")); if (scenario.expiresAt <= new Date()) throw new DomainError("SCENARIO_EXPIRED"); return scenario; }
   async ownerTokenForScenario(id: string) { await this.getScenario(id); return deriveOwnerToken(id); }

@@ -96,7 +96,8 @@ export default function Home() {
     if (!isCheckout) setMerchant(routeMerchant);
   }, [isCheckout, routeMerchant]);
   const product = products[merchant][0];
-  const orderProduct = order?.items?.[0] ?? product;
+  // Never label an aggregate legacy order with the first catalog SKU.
+  const orderTitle = order?.items?.length === 1 ? order.items[0].name : "Order total";
   const cartTotal = Object.entries(cart).reduce((sum, [sku, quantity]) => sum + (products[merchant].find((item) => item.sku === sku)?.price ?? 0) * quantity, 0);
   const refresh = useCallback(async () => {
     if (!scenarioId) return;
@@ -309,7 +310,7 @@ export default function Home() {
             {order && (paid || qr || order.status === "authorized") && (
               <div className="card-heading">
                 <div>
-                <h2>{orderProduct.name}</h2>
+                <h2>{orderTitle}</h2>
                 </div>
                 <span className="state-badge">{money(order.totalCents)}</span>
               </div>
@@ -377,7 +378,7 @@ export default function Home() {
                     <span className="customer-item-name">{item.name}</span>
                     <span className="customer-quantity">{item.quantity}</span>
                     <strong className="customer-line-price">{money(item.priceCents * item.quantity)}</strong>
-                  </div>) : <div className="customer-order-line"><span className="customer-item-name">{orderProduct.name}</span><span className="customer-quantity">1</span><strong className="customer-line-price">{money(order.totalCents)}</strong></div>}
+                  </div>) : <div className="customer-order-line"><span className="customer-item-name">Order total</span><span className="customer-quantity">—</span><strong className="customer-line-price">{money(order.totalCents)}</strong></div>}
                   <p className="payment-summary">
                     Total due <strong>{money(order.totalCents)}</strong>
                   </p>

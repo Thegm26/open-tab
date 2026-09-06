@@ -36,6 +36,15 @@ describe("Open Tab in-memory lifecycle", () => {
     expect(store.getOrder(sourdough.id).items?.[0]).toMatchObject({ sku: "sourdough", name: "Sourdough loaf" });
   });
 
+  it("retains every canonical line in a multi-item order", () => {
+    const { store, scenario } = setup();
+    const order = store.createOrder({ scenarioId: scenario.id, merchantId: "cafe", totalCents: 1280, items: [
+      { sku: "dinner", quantity: 1, name: "Dinner plate", priceCents: 780 },
+      { sku: "toast", quantity: 1, name: "Tomato toast", priceCents: 500 },
+    ], idempotencyKey: key("203") });
+    expect(store.getOrder(order.id).items).toEqual(order.items);
+  });
+
   it("credits a successful server-computed contribution and never credits a decline", () => {
     const { store, scenario } = setup();
     const order = store.createOrder({ scenarioId: scenario.id, merchantId: "cafe", totalCents: 450, idempotencyKey: key("11") });

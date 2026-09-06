@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { CATALOG } from "@/lib/domain/catalog";
 
@@ -72,7 +72,6 @@ type Dash = {
 
 export default function Home() {
   const pathname = usePathname();
-  const router = useRouter();
   const isCheckout = pathname === "/checkout";
   const view = isCheckout ? "pos" : "dashboard";
   const [merchant, setMerchant] = useState<"cafe" | "bakery">("cafe");
@@ -194,8 +193,7 @@ export default function Home() {
       setOrder(d.order);
       sessionStorage.setItem("ot_active_order", d.order.id);
       sessionStorage.setItem("ot_active_scenario", sd.scenario.id);
-      router.push(`/checkout?orderId=${encodeURIComponent(d.order.id)}`);
-      setMessage(`Checkout opened for ${money(d.order.totalCents)}.`);
+      setMessage(`Order created · ${money(d.order.totalCents)}.`);
       refresh();
     } catch (error) {
       const errorMessage =
@@ -276,8 +274,9 @@ export default function Home() {
     <main className="shell">
       <header className="topbar">
         <div className="merchant-control">
-          <span>{isCheckout ? "Customer checkout" : "Admin"}</span>
-          {isCheckout && <a className="button ghost" href="/admin">Admin</a>}
+          <span>{isCheckout ? "Customer checkout" : "Employee View"}</span>
+          {isCheckout && <a className="button ghost" href="/admin">Employee View</a>}
+          {!isCheckout && order && <a className="button ghost" href={`/checkout?orderId=${encodeURIComponent(order.id)}`} target="_blank" rel="noreferrer">Customer View</a>}
         </div>
       </header>
       {view === "pos" ? (

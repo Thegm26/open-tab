@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { QRCodeSVG } from "qrcode.react";
 import { CATALOG } from "@/lib/domain/catalog";
 
 const money = (c = 0) => `€${(c / 100).toFixed(2)}`;
@@ -32,18 +31,6 @@ const logos = {
 } as const;
 const productIcons: Record<string, string> = { espresso: "☕", dinner: "🍽️", toast: "🍅", lemonade: "🍋", "flat-white": "🥛", "iced-coffee": "🧊", "orange-juice": "🍊", "chicken-salad": "🥗", "pasta-bowl": "🍝", cheesecake: "🍰", croissant: "🥐", lunch: "🥪", sourdough: "🍞", cookie: "🍪", baguette: "🥖", "rye-loaf": "🍞", "cinnamon-roll": "🌀", "veggie-focaccia": "🥬", "iced-tea": "🧋", "hot-chocolate": "☕" };
 const key = () => crypto.randomUUID();
-function claimOrigin() {
-  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (configured) {
-    try {
-      const parsed = new URL(configured);
-      if (parsed.protocol === "http:" || parsed.protocol === "https:") return parsed.origin;
-    } catch {
-      // Ignore an invalid override and use the origin serving this page.
-    }
-  }
-  return location.origin;
-}
 function csrfToken(scenarioId: string) {
   const name = `ot_csrf_${scenarioId}=`;
   const cookie = document.cookie
@@ -99,9 +86,10 @@ export default function Home() {
   const [order, setOrder] = useState<Order>();
   const [contributionCents, setContributionCents] = useState(0);
   const [scenarioId, setScenarioId] = useState("");
-  const [message, setMessage] = useState("Ready for a new checkout.");
+  const [message, setMessage] = useState("");
   const [checkoutError, setCheckoutError] = useState("");
-  const [qr, setQr] = useState("");
+  const [availablePoolCents, setAvailablePoolCents] = useState(0);
+  const [claim, setClaim] = useState<{ remainingCents: number; amountCents: number }>();
   const [dashboard, setDashboard] = useState<Dash>();
   const [loading, setLoading] = useState(false);
   useEffect(() => {
@@ -132,7 +120,8 @@ export default function Home() {
     const poll = async () => {
       const response = await fetch("/api/demo-terminal/current-order", { cache: "no-store" });
       if (!response.ok || !active) return;
-      const data = await response.json() as { order: Order | null };
+      const data = await response.json() as { order: Order | null; availablePoolCents: number };
+      setAvailablePoolCents(data.availablePoolCents);
       if (data.order) {
         setOrder(data.order);
         setScenarioId(data.order.scenarioId);
@@ -265,13 +254,14 @@ export default function Home() {
     setOrder(undefined);
     setContributionCents(0);
     setCheckoutError("");
-    setMessage("Ready for a new checkout.");
+    setMessage("");
+    setClaim(undefined);
     setCart({});
   }
-  async function createQr() {
+  async function startOpenTab() {
     if (!order || loading) return;
     setLoading(true);
-    setMessage("Preparing claim QR…");
+    setMessage("Opening Open Tab…");
     try {
       const terminalAction = isCheckout;
       const r = await fetch(terminalAction ? `/api/demo-terminal/orders/${order.id}` : `/api/pos/orders/${order.id}/claim-session`, {
@@ -284,14 +274,20 @@ export default function Home() {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "QR_CREATE_FAILED");
-      // Keep the QR and the visible link byte-for-byte identical. A deployed
-      // NEXT_PUBLIC_APP_URL also lets a terminal running on localhost create a
-      // phone-safe link for the public app.
-      setQr(new URL(d.claimUrl ?? `/claim#${d.token}`, claimOrigin()).toString());
-      setMessage("Claim QR is ready to scan.");
+      const exchanged = await fetch("/api/claims/exchange", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: d.token }) });
+      if (!exchanged.ok) throw new Error((await exchanged.json()).error ?? "CLAIM_EXCHANGE_FAILED");
+      const session = await fetch("/api/claims/session", { cache: "no-store" });
+      const sessionData = await session.json();
+      if (!session.ok) throw new Error(sessionData.error ?? "CLAIM_SESSION_FAILED");
+      const inspect = await fetch("/api/claims/inspect", { method: "POST" });
+      const inspectData = await inspect.json();
+      if (!inspect.ok) throw new Error(inspectData.error ?? "CLAIM_INSPECT_FAILED");
+      const max = Math.min(sessionData.order.remainingTenderCents, availablePoolCents, inspectData.limits.perOrderCents);
+      setClaim({ remainingCents: max, amountCents: Math.min(100, max) });
+      setMessage("");
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Could not create claim QR.",
+        error instanceof Error ? error.message : "Could not open Open Tab.",
       );
     } finally {
       setLoading(false);
@@ -317,7 +313,7 @@ export default function Home() {
             {order && <div className="checkout-brand">
               <Image className="checkout-logo" src={logos[merchant]} alt={`${names[merchant]} logo`} width={176} height={176} priority />
             </div>}
-            {order && (paid || qr || order.status === "authorized") && (
+            {order && (paid || claim || order.status === "authorized") && (
               <div className="card-heading">
                 <div>
                 <h2>{orderTitle}</h2>
@@ -345,24 +341,11 @@ export default function Home() {
                   </p>
                 </div>
               )
-            : !order ? <p className="muted terminal-waiting">Waiting for the employee to create a checkout…</p> : qr ? (
-              <div className="qr-box">
-                <QRCodeSVG
-                  value={qr}
-                  size={216}
-                  includeMargin
-                  role="img"
-                  aria-label="Open Tab claim QR code"
-                />
-                <div>
-                  <h3>Scan to use Open Tab</h3>
-                  <p>
-                    Scan this code on your phone, choose how much Open Tab
-                    covers, and checkout updates automatically.
-                  </p>
-                  {claimOrigin().match(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/) && <p className="qr-local-note">Local preview links only work on this computer. Set <code>NEXT_PUBLIC_APP_URL</code> to your deployed URL before scanning with a phone.</p>}
-                  <a href={qr}>Open on another device ↗</a>
-                </div>
+            : !order ? <p className="muted terminal-waiting">Waiting for the employee to create a checkout…</p> : claim ? (
+              <div className="inline-claim">
+                <div className="inline-claim-heading"><div><h3>Use Open Tab</h3><p>Choose how much Open Tab covers.</p></div><strong>{money(claim.remainingCents)} available</strong></div>
+                <label className="pos-label" htmlFor="claim-amount">Open Tab amount (€)<input id="claim-amount" type="number" min="0.01" max={(claim.remainingCents / 100).toFixed(2)} step="0.01" value={(claim.amountCents / 100).toFixed(2)} onChange={(event) => setClaim({ ...claim, amountCents: Math.min(claim.remainingCents, Math.max(1, Math.round(Number(event.target.value) * 100))) })} /></label>
+                <button className="button primary full" disabled={loading || claim.amountCents < 1} onClick={async () => { setLoading(true); setMessage("Applying Open Tab…"); try { const response = await fetch("/api/claims/authorize", { method: "POST", headers: { "content-type": "application/json", origin: location.origin, "idempotency-key": key() }, body: JSON.stringify({ amountCents: claim.amountCents }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error ?? "OPEN_TAB_FAILED"); const status = await fetch(`/api/demo-terminal/orders/${order.id}`, { cache: "no-store" }); if (status.ok) setOrder((await status.json()).order); setClaim(undefined); setMessage(`Open Tab covered ${money(data.amountCents)}.`); } catch (error) { setMessage(error instanceof Error ? error.message : "Open Tab failed."); } finally { setLoading(false); } }}>Apply Open Tab · {money(claim.amountCents)}</button>
               </div>
             ) : order.status === "authorized" ? (
               <div className="payment-choice">
@@ -427,12 +410,13 @@ export default function Home() {
                     {loading ? "Processing…" : `Pay ${money(order.totalCents)}`}
                   </button>
                 )}
+                <div className="open-tab-availability">Open Tab available <strong>{money(availablePoolCents)}</strong></div>
                 <button
                   className="open-tab-link"
-                  onClick={createQr}
-                  disabled={loading}
+                  onClick={startOpenTab}
+                  disabled={loading || availablePoolCents < 1}
                 >
-                  Use Open Tab
+                  {availablePoolCents > 0 ? "Use Open Tab" : "No funds available"}
                 </button>
               </div>
             )}{" "}

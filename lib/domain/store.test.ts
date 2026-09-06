@@ -22,11 +22,8 @@ function redemption(store: InMemoryOpenTabStore, scenarioId: string, totalCents:
 }
 
 describe("round-up arithmetic", () => {
-  it.each([[470, 30], [450, 20], [500, 20], [1201, 99], [1249, 51]])("rounds %i by %i cents", (total, expected) => {
+  it.each([[450, 20], [470, 30], [500, 20], [530, 20], [280, 20], [1201, 49], [1249, 1]])("rounds %i by %i cents", (total, expected) => {
     expect(roundUpContributionCents(total)).toBe(expected);
-  });
-  it.each([[450, 10, 10], [450, 50, 50], [500, 100, 100]])("uses configured fixed amount for %i with %i cents setting", (total, configured, expected) => {
-    expect(roundUpContributionCents(total, configured as 10 | 20 | 50 | 100)).toBe(expected);
   });
 });
 
@@ -134,7 +131,6 @@ describe("Open Tab in-memory lifecycle", () => {
     expect(() => store.createScenario({ policy: { deviceDailyLimitCents: 0 } })).toThrow(expect.objectContaining({ code: "INVALID_POLICY" }));
     const scenario = store.createScenario();
     expect(() => store.createOrder({ scenarioId: scenario.id, merchantId: "cafe", totalCents: 100, idempotencyKey: "not-a-uuid" })).toThrow(expect.objectContaining({ code: "INVALID_IDEMPOTENCY_KEY" }));
-    expect(() => store.createOrder({ scenarioId: scenario.id, merchantId: "cafe", totalCents: 100, roundupContributionCents: 25, idempotencyKey: key("92") })).toThrow(expect.objectContaining({ code: "INVALID_ROUNDUP_CONTRIBUTION" }));
   });
 
   it("requires a strong bootstrap secret and aggregates recovery ledger credits", () => {

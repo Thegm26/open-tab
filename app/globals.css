@@ -162,3 +162,4 @@
 .pos-panel .state-badge { background:#f3f4ef; color:var(--ink); }
 @media (max-width:760px) { .workspace { padding:24px 0 34px; } .pos-panel.card, .admin-order.card { padding:24px 19px 26px; border-radius:18px; } .checkout-brand { margin-bottom:25px; } .checkout-logo { width:140px; height:140px; } .checkout-brand h1 { font-size:27px; } .roundup { grid-template-columns:1fr; } .roundup-contribution { justify-self:start; } .roundup .action-row { grid-column:auto; flex-direction:column; width:100%; } }
 @media (max-width:480px) { .payment-tiles { grid-template-columns:1fr; } .payment-tile { min-height:170px; padding:14px; } }
+.activity-pagination { display:flex; align-items:center; justify-content:space-between; padding-top:12px; color:var(--muted); font-size:11px; }

@@ -507,9 +507,20 @@ function Dashboard({
   refresh: () => void;
   notify: (message: string) => void;
 }) {
+  const activity = dashboard?.ledger.slice().reverse() ?? [];
+  const activityPageSize = 5;
+  const activityPageCount = Math.max(1, Math.ceil(activity.length / activityPageSize));
+  const [activityPage, setActivityPage] = useState(1);
+  const activitySignature = activity.map((item) => `${item.id}:${item.createdAt}`).join("|");
+  useEffect(() => {
+    setActivityPage(1);
+  }, [activitySignature]);
+  useEffect(() => {
+    setActivityPage((page) => Math.min(page, activityPageCount));
+  }, [activityPageCount]);
+  const visibleActivity = activity.slice((activityPage - 1) * activityPageSize, activityPage * activityPageSize);
   if (!dashboard) return null;
   const currentDashboard = dashboard;
-  const activity = currentDashboard.ledger.slice().reverse().slice(0, 6);
   const outstandingReceivables = currentDashboard.receivables.filter((entry) => entry.status === "unsettled" && entry.originalCents - entry.reducedCents - entry.settledCents > 0);
   async function settle(id: string) {
     try {
@@ -586,7 +597,7 @@ function Dashboard({
           </div>
           {activity.length ? (
             <div className="activity">
-              {activity.map((item) => (
+              {visibleActivity.map((item) => (
                 <div className="activity-row" key={item.id}>
                   <span
                     className={`activity-icon ${item.amountCents < 0 ? "debit" : "credit"}`}
@@ -608,6 +619,11 @@ function Dashboard({
                   </b>
                 </div>
               ))}
+              {activityPageCount > 1 && <div className="activity-pagination" aria-label="Activity pages">
+                <button className="text-button" type="button" onClick={() => setActivityPage((page) => page - 1)} disabled={activityPage === 1}>Previous</button>
+                <span>Page {activityPage} of {activityPageCount}</span>
+                <button className="text-button" type="button" onClick={() => setActivityPage((page) => page + 1)} disabled={activityPage === activityPageCount}>Next</button>
+              </div>}
             </div>
           ) : (
             <p className="muted">Your first checkout will appear here.</p>

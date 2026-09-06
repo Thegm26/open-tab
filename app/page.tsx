@@ -252,7 +252,7 @@ export default function Home() {
     setLoading(true);
     setMessage("Processing payment…");
     try {
-      const terminalAction = isCheckout && (path === "checkout" || path === "round-up");
+      const terminalAction = isCheckout && (path === "checkout" || path === "round-up" || path === "complete");
       const r = await fetch(terminalAction ? `/api/demo-terminal/orders/${order.id}` : `/api/pos/orders/${order.id}/${path}`, {
         method: "POST",
         headers: {

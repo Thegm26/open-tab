@@ -27,6 +27,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         idempotencyKey: key(request),
       }));
     }
+    if (body.action === "complete") {
+      return json(await store.completeOrder({ orderId: order.id, idempotencyKey: key(request) }));
+    }
     return json({ error: "INVALID_TERMINAL_ACTION" }, 400);
   } catch (cause) { return error(cause); }
 }

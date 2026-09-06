@@ -272,7 +272,7 @@ export default function Home() {
       <header className="topbar">
         {isCheckout && <Image className="brand-symbol" src="/open-tab-symbol.png" alt="Open Tab" width={42} height={42} priority />}
         <div className="merchant-control">
-          <h1 className="page-title">{isCheckout ? "Customer checkout" : "OpenTab / Employee"}</h1>
+          <h1 className="page-title">{isCheckout ? "Customer checkout" : "Employee View / Control Panel"}</h1>
           {isCheckout && <a className="button ghost" href="/admin">Employee View</a>}
           {!isCheckout && order && <a className="button ghost" href={`/checkout?orderId=${encodeURIComponent(order.id)}`} target="_blank" rel="noreferrer">Customer View</a>}
         </div>

@@ -80,6 +80,16 @@ describe("Open Tab in-memory lifecycle", () => {
     expect(store.completeOrder({ orderId: order.id, idempotencyKey: key("24") })).toEqual({ status: "COMPLETED", openTabCents: 100 });
   });
 
+  it("owes the merchant only the assisted Open Tab portion", () => {
+    const { store, scenario } = setup();
+    const { order } = redemption(store, scenario.id, 280, 30, 25);
+    expect(store.getOrder(order.id).customerTenderCents).toBe(250);
+    expect(store.completeOrder({ orderId: order.id, idempotencyKey: key("26") })).toMatchObject({ status: "COMPLETED", openTabCents: 30 });
+    expect(store.listReceivables(scenario.id)[0]).toMatchObject({ originalCents: 30, reducedCents: 0, settledCents: 0, status: "unsettled" });
+    const receivable = store.listReceivables(scenario.id)[0];
+    expect(store.settleReceivable({ receivableId: receivable.id, idempotencyKey: key("27") })).toMatchObject({ merchantPayoutCents: 30 });
+  });
+
   it("uses database-time expiry for availability and rejects late completion", () => {
     const { store, clock, scenario } = setup();
     const { order } = redemption(store, scenario.id, 450, 100, 3);

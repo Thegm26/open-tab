@@ -4,6 +4,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { CATALOG } from "@/lib/domain/catalog";
 import { claimPresets } from "@/lib/domain/claim-presets";
+import { receiptSummary, type PaymentKind } from "@/lib/domain/receipt";
 
 const money = (c = 0) => `€${(c / 100).toFixed(2)}`;
 const roundUp = (total: number) => {
@@ -86,6 +87,7 @@ export default function Home() {
   const [cart, setCart] = useState<Record<string, number>>({});
   const [order, setOrder] = useState<Order>();
   const [contributionCents, setContributionCents] = useState(0);
+  const [paymentKind, setPaymentKind] = useState<PaymentKind>();
   const [scenarioId, setScenarioId] = useState("");
   const [message, setMessage] = useState("");
   const [checkoutError, setCheckoutError] = useState("");
@@ -124,7 +126,14 @@ export default function Home() {
       const data = await response.json() as { order: Order | null; availablePoolCents: number };
       setAvailablePoolCents(data.availablePoolCents);
       if (data.order) {
-        setOrder(data.order);
+        setOrder((previous) => {
+          if (previous?.id !== data.order!.id) {
+            setContributionCents(0);
+            setPaymentKind(undefined);
+            setClaim(undefined);
+          }
+          return data.order!;
+        });
         setScenarioId(data.order.scenarioId);
         if (data.order.merchantId === "cafe" || data.order.merchantId === "bakery") setMerchant(data.order.merchantId);
       }
@@ -158,6 +167,7 @@ export default function Home() {
     setLoading(true);
     setCheckoutError("");
     setContributionCents(0);
+    setPaymentKind(undefined);
     try {
       const bootstrap = async () => {
         let secret = sessionStorage.getItem("ot_demo_secret");
@@ -231,7 +241,11 @@ export default function Home() {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? "ORDER_UPDATE_FAILED");
-      setContributionCents(Number(data.contributionCents ?? 0));
+      const nextContributionCents = Number(data.contributionCents ?? 0);
+      setContributionCents(nextContributionCents);
+      if (path === "round-up") setPaymentKind("roundup");
+      else if (path === "checkout") setPaymentKind("exact");
+      else if (path === "complete") setPaymentKind("assisted");
       const statusResponse = await fetch(`/api/pos/orders/${order.id}/status`, {
         cache: "no-store",
       });
@@ -254,6 +268,7 @@ export default function Home() {
   function createNewOrder() {
     setOrder(undefined);
     setContributionCents(0);
+    setPaymentKind(undefined);
     setCheckoutError("");
     setMessage("");
     setClaim(undefined);
@@ -299,6 +314,7 @@ export default function Home() {
     ? roundUp(order.totalCents)
     : roundUp(product.price);
   const paid = order?.status === "completed";
+  const receipt = order && paid && paymentKind ? receiptSummary(order, paymentKind, contributionCents) : undefined;
   const activeOrder = Boolean(order && !["completed", "cancelled", "failed", "refunded"].includes(order.status));
   const customerOrderSummary = order ? (
     <div className="customer-order-summary">
@@ -327,20 +343,21 @@ export default function Home() {
             {paid ? (
                 <div className="receipt">
                     <div className="approved-mark">✓</div>
-                  <h3>Paid {money(order.totalCents + contributionCents)}</h3>
+                  <h3>Paid {money(receipt?.paidCents ?? order.customerTenderCents)}</h3>
                   <div className="receipt-breakdown">
                     <span>
                       Purchase <strong>{money(order.totalCents)}</strong>
                     </span>
-                    <span>
-                      Open Tab contribution{" "}
-                      <strong>{money(contributionCents)}</strong>
-                    </span>
+                    {receipt?.assistanceCents ? <span>Open Tab covered <strong>{money(receipt.assistanceCents)}</strong></span> : null}
+                    {receipt?.contributionCents ? <span>Open Tab contribution <strong>{money(receipt.contributionCents)}</strong></span> : null}
+                    {receipt?.assistanceCents ? <span>Customer paid <strong>{money(receipt.customerPaidCents)}</strong></span> : null}
                   </div>
                   <p>
-                    {contributionCents
-                      ? <>{order.totalCents % 50 === 0 ? `Added ${money(contributionCents)} to Open Tab.` : <>Thank you for helping each other <span role="img" aria-label="heart">♥</span></>}</>
-                      : "Payment received."}
+                    {receipt?.assistanceCents
+                      ? <>Open Tab helped cover {money(receipt.assistanceCents)} of your purchase.</>
+                      : receipt?.contributionCents
+                        ? <>Thank you for helping each other <span role="img" aria-label="heart">♥</span></>
+                        : "Payment received."}
                   </p>
                 </div>
               )
@@ -467,6 +484,7 @@ function Dashboard({
   if (!dashboard) return null;
   const currentDashboard = dashboard;
   const activity = currentDashboard.ledger.slice().reverse().slice(0, 6);
+  const outstandingReceivables = currentDashboard.receivables.filter((entry) => entry.status === "unsettled" && entry.originalCents - entry.reducedCents - entry.settledCents > 0);
   async function settle(id: string) {
     try {
       const response = await fetch(
@@ -570,7 +588,7 @@ function Dashboard({
           )}
         </section>
       </div>
-      {(dashboard.receivables.length > 0 || dashboard.debts.length > 0) && <section className="card settlement-card">
+      {(outstandingReceivables.length > 0 || dashboard.debts.length > 0) && <section className="card settlement-card">
         <div className="card-heading">
           <div>
             <p className="eyebrow">SETTLEMENT & RECOVERY</p>
@@ -580,18 +598,17 @@ function Dashboard({
             {dashboard.completedHelpedCount} assisted purchases
           </span>
         </div>
-        {dashboard.receivables.map((receivable) => (
+        {outstandingReceivables.map((receivable) => (
             <div className="settlement-row" key={receivable.id}>
               <div>
                 <strong>Purchase {receivable.id.slice(0, 6)}</strong>
                 <small>
                   {receivable.status.replaceAll("_", " ")} ·{" "}
-                  {money(
+                    <span>Open Tab owes merchant {money(
                     receivable.originalCents -
                       receivable.reducedCents -
                       receivable.settledCents,
-                  )}{" "}
-                  payable
+                  )}</span>
                 </small>
               </div>
               <button

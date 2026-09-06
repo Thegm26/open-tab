@@ -130,5 +130,9 @@
 .admin-order.card .pos-label { color:var(--muted); font-size:12px; font-weight:700; }
 .admin-order.card select { min-height:44px; padding:11px 12px; font-size:16px; font-weight:400; line-height:1.25; }
 .checkout-error { margin:14px 0 0; color:#a33b2b; font-size:13px; line-height:1.4; }
+.paid-confirmation { text-align:center; }
+.paid-confirmation h2 { margin:0; color:var(--green); font-size:30px; letter-spacing:.04em; }
+.paid-amount { margin:8px 0 24px; color:var(--ink); font-size:40px; font-weight:800; letter-spacing:-.06em; }
+.pos-panel .state-badge { background:#f3f4ef; color:var(--ink); }
 @media (max-width:760px) { .workspace { padding:24px 0 34px; } .pos-panel.card, .admin-order.card { padding:24px 19px 26px; border-radius:18px; } .checkout-brand { margin-bottom:25px; } .checkout-logo { width:140px; height:140px; } .checkout-brand h1 { font-size:27px; } .roundup { grid-template-columns:1fr; } .roundup-contribution { justify-self:start; } .roundup .action-row { grid-column:auto; flex-direction:column; width:100%; } }
 @media (max-width:480px) { .payment-tiles { grid-template-columns:1fr; } .payment-tile { min-height:170px; padding:14px; } }

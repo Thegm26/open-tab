@@ -239,6 +239,13 @@ export default function Home() {
       setLoading(false);
     }
   }
+
+  function createNewOrder() {
+    setOrder(undefined);
+    setContributionCents(0);
+    setCheckoutError("");
+    setMessage("Ready for a new checkout.");
+  }
   async function createQr() {
     if (!order || loading) return;
     setLoading(true);
@@ -415,7 +422,12 @@ export default function Home() {
           </div>
         </section>
       ) : (
-        <><section className="admin-order card"><div className="card-heading"><div><h2>Order</h2></div></div><label className="pos-label">Merchant<select className="company-selector" aria-label="Merchant" value={merchant} onChange={(e) => { setMerchant(e.target.value as "cafe" | "bakery"); setProductIndex(0); }} disabled={activeOrder}><option value="cafe">Café Sol</option><option value="bakery">Bread &amp; Butter Bakery</option></select></label><label className="pos-label">Product<select value={productIndex} onChange={(e) => setProductIndex(Number(e.target.value))} disabled={activeOrder}>{products[merchant].map((item, index) => <option key={item.sku} value={index}>{item.name}</option>)}</select></label><div className="order-preview"><span>{product.name}</span><strong>{money(product.price)}</strong></div>{!activeOrder && <button className="button primary full" onClick={start} disabled={loading}>{loading ? "Opening…" : `Create checkout · ${money(product.price)}`}<span>→</span></button>}{checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}{order && <div className={`order-state order-state-${order.status}`}><span className={`status-dot ${order.status}`} /><strong>{order.status === "open" ? "PENDING" : order.status === "completed" ? "PAID" : order.status.replaceAll("_", " ").toUpperCase()}</strong><span className="mono">{money(order.totalCents)}</span></div>}</section><Dashboard
+        <>{paid ? <section className="admin-order card paid-confirmation" aria-live="polite">
+          <div className="approved-mark">✓</div>
+          <h2>PAID</h2>
+          <p className="paid-amount">{money(order.totalCents)}</p>
+          <button className="button primary full" onClick={createNewOrder}>Create new order</button>
+        </section> : <section className="admin-order card"><div className="card-heading"><div><h2>Order</h2></div></div><label className="pos-label">Merchant<select className="company-selector" aria-label="Merchant" value={merchant} onChange={(e) => { setMerchant(e.target.value as "cafe" | "bakery"); setProductIndex(0); }} disabled={activeOrder}><option value="cafe">Café Sol</option><option value="bakery">Bread &amp; Butter Bakery</option></select></label><label className="pos-label">Product<select value={productIndex} onChange={(e) => setProductIndex(Number(e.target.value))} disabled={activeOrder}>{products[merchant].map((item, index) => <option key={item.sku} value={index}>{item.name}</option>)}</select></label><div className="order-preview"><span>{product.name}</span><strong>{money(product.price)}</strong></div>{!activeOrder && <button className="button primary full" onClick={start} disabled={loading}>{loading ? "Opening…" : `Create checkout · ${money(product.price)}`}<span>→</span></button>}{checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}{order && <div className={`order-state order-state-${order.status}`}><span className={`status-dot ${order.status}`} /><strong>{order.status === "open" ? "PENDING" : order.status === "completed" ? "PAID" : order.status.replaceAll("_", " ").toUpperCase()}</strong><span className="mono">{money(order.totalCents)}</span></div>}</section>}<Dashboard
           dashboard={dashboard}
           refresh={refresh}
           notify={setMessage}

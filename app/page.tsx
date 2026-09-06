@@ -77,7 +77,7 @@ export default function Home() {
   const view = isCheckout ? "pos" : "dashboard";
 
   useEffect(() => {
-    document.title = isCheckout ? "OpenTab / Customer" : "Open Tab / Employee";
+    document.title = isCheckout ? "OpenTab / Client" : "OpenTab / Employee";
   }, [isCheckout]);
   const [merchant, setMerchant] = useState<"cafe" | "bakery">("cafe");
   const [productIndex, setProductIndex] = useState(0);
@@ -270,6 +270,7 @@ export default function Home() {
     ? roundUp(order.totalCents)
     : roundUp(product.price);
   const paid = order?.status === "completed";
+  const activeOrder = Boolean(order && !["completed", "cancelled", "failed", "refunded"].includes(order.status));
   return (
     <main className="shell">
       <header className={`topbar${isCheckout ? " checkout-topbar" : ""}`}>
@@ -414,7 +415,7 @@ export default function Home() {
           </div>
         </section>
       ) : (
-        <><section className="admin-order card"><div className="card-heading"><div><h2>Order</h2></div></div><label className="pos-label">Merchant<select className="company-selector" aria-label="Merchant" value={merchant} onChange={(e) => { setMerchant(e.target.value as "cafe" | "bakery"); setProductIndex(0); }}><option value="cafe">Café Sol</option><option value="bakery">Bread &amp; Butter Bakery</option></select></label><label className="pos-label">Product<select value={productIndex} onChange={(e) => setProductIndex(Number(e.target.value))}>{products[merchant].map((item, index) => <option key={item.sku} value={index}>{item.name}</option>)}</select></label><div className="order-preview"><span>{product.name}</span><strong>{money(product.price)}</strong></div><button className="button primary full" onClick={start} disabled={loading}>{loading ? "Opening…" : `Create checkout · ${money(product.price)}`}<span>→</span></button>{checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}{order && <div className="order-state"><span className={`status-dot ${order.status}`} /><strong>{order.status === "open" ? "Pending" : order.status === "completed" ? "Paid" : order.status.replaceAll("_", " ")}</strong><span className="mono">{money(order.totalCents)}</span></div>}</section><Dashboard
+        <><section className="admin-order card"><div className="card-heading"><div><h2>Order</h2></div></div><label className="pos-label">Merchant<select className="company-selector" aria-label="Merchant" value={merchant} onChange={(e) => { setMerchant(e.target.value as "cafe" | "bakery"); setProductIndex(0); }} disabled={activeOrder}><option value="cafe">Café Sol</option><option value="bakery">Bread &amp; Butter Bakery</option></select></label><label className="pos-label">Product<select value={productIndex} onChange={(e) => setProductIndex(Number(e.target.value))} disabled={activeOrder}>{products[merchant].map((item, index) => <option key={item.sku} value={index}>{item.name}</option>)}</select></label><div className="order-preview"><span>{product.name}</span><strong>{money(product.price)}</strong></div>{!activeOrder && <button className="button primary full" onClick={start} disabled={loading}>{loading ? "Opening…" : `Create checkout · ${money(product.price)}`}<span>→</span></button>}{checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}{order && <div className={`order-state order-state-${order.status}`}><span className={`status-dot ${order.status}`} /><strong>{order.status === "open" ? "PENDING" : order.status === "completed" ? "PAID" : order.status.replaceAll("_", " ").toUpperCase()}</strong><span className="mono">{money(order.totalCents)}</span></div>}</section><Dashboard
           dashboard={dashboard}
           refresh={refresh}
           notify={setMessage}

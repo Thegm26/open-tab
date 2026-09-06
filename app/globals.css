@@ -12,6 +12,11 @@
 @media (max-width:760px) { .shell { padding:18px 15px 28px; } .topbar,.intro { align-items:flex-start; flex-direction:column; } .header-actions { width:100%; justify-content:space-between; } .intro { padding:48px 0 30px; } .view-switch { width:100%; } .view-switch button { flex:1; } .grid-layout,.dash-grid { grid-template-columns:1fr; } .metrics { grid-template-columns:repeat(2,1fr); } .card { padding:19px; } footer { flex-direction:column; } .qr-box { align-items:flex-start; flex-direction:column; } }
 @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto!important; transition:none!important; } }
 
+.order-state { gap:10px; }
+.order-state .mono { color:var(--ink); font-size:15px; font-weight:800; }
+.order-state-open { margin-top:18px; padding:14px 16px; border:2px solid #d48715; border-radius:12px; background:#fff3d6; color:#7a4300; font-size:16px; font-weight:800; letter-spacing:.04em; }
+.order-state-open .status-dot { width:10px; height:10px; background:#d48715; box-shadow:0 0 0 4px #f8d99a; }
+
 /* Responsive polish */
 .topbar::before { display:none; }
 .merchant-control { display:flex; align-items:center; gap:10px; }

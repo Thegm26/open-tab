@@ -9,7 +9,7 @@ import {
 } from "./types";
 
 export const DEFAULT_POLICY: Policy = {
-  activationThresholdCents: 2_000,
+  activationThresholdCents: 0,
   perOrderLimitCents: 500,
   deviceDailyLimitCents: 1_000,
   claimLifetimeMs: 5 * 60_000,
@@ -64,7 +64,7 @@ export class InMemoryOpenTabStore {
 
   createScenario(input: { seedPoolCents?: number; expiresAt?: Date; policy?: Partial<Policy> } = {}): Scenario {
     return this.atomic(() => {
-      const seed = input.seedPoolCents ?? 2_000;
+      const seed = input.seedPoolCents ?? 0;
       assertCents(seed, "seedPoolCents");
       const policy = { ...DEFAULT_POLICY, ...input.policy };
       this.validatePolicy(policy);
@@ -76,7 +76,6 @@ export class InMemoryOpenTabStore {
       };
       if (scenario.expiresAt <= this.clock.now()) throw new DomainError("INVALID_SCENARIO_EXPIRY");
       this.data.scenarios.set(scenario.id, scenario);
-      if (seed > 0) this.ledger(scenario.id, "historical_contribution_credit", seed);
       return this.copy(scenario);
     });
   }

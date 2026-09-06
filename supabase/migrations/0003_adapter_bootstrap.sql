@@ -16,10 +16,8 @@ begin
    return jsonb_build_object('scenario_id', b.scenario_id);
  end if;
  insert into public.demo_scenarios(settled_pool_cents,activated,owner_token_hash,expires_at)
- values(2000,true,'pending',now()+interval '24 hours') returning id into s;
+ values(0,true,'pending',now()+interval '24 hours') returning id into s;
  insert into public.merchants(scenario_id,slug,name) values (s,'cafe','Café Sol'),(s,'bakery','Bread & Butter Bakery');
- insert into public.ledger_entries(scenario_id,kind,amount_cents,idempotency_operation,idempotency_key)
- values(s,'historical_contribution_credit',2000,'bootstrap',p_idempotency_key);
  insert into public.bootstrap_records(bootstrap_hash,idempotency_key,request_hash,scenario_id,expires_at) values(p_bootstrap_hash,p_idempotency_key,p_bootstrap_hash,s,now()+interval '10 minutes');
  return jsonb_build_object('scenario_id',s);
 end $$;

@@ -305,18 +305,6 @@ export default function Home() {
                       ? <>Thank you for helping each other <span role="img" aria-label="heart">♥</span></>
                       : "Payment received."}
                   </p>
-                  <button
-                    className="button primary"
-                    onClick={() => {
-                      setOrder(undefined);
-                      setContributionCents(0);
-                      setQr("");
-                      setView("dashboard");
-                      setMessage("Ready for a new checkout.");
-                    }}
-                  >
-                    New sale
-                  </button>
                 </div>
               )
             : !order ? null : qr ? (

@@ -50,9 +50,9 @@ end $$;
 select public.ot_bootstrap('bootstrap-smoke', 'abababab-abab-4aba-8aba-abababababac', 'bootstrap-smoke-secret-1234567890123456');
 do $$ declare sid uuid; begin
   select scenario_id into sid from public.bootstrap_records where bootstrap_hash='bootstrap-smoke';
-  if (select count(*) from public.ledger_entries where scenario_id=sid and kind='historical_contribution_credit') <> 1 then raise exception 'bootstrap historical credit missing/duplicated'; end if;
+  if (select count(*) from public.ledger_entries where scenario_id=sid and kind='historical_contribution_credit') <> 0 then raise exception 'unexpected bootstrap historical credit'; end if;
   perform public.ot_bootstrap('bootstrap-smoke', 'abababab-abab-4aba-8aba-abababababac', 'bootstrap-smoke-secret-1234567890123456');
-  if (select count(*) from public.ledger_entries where scenario_id=sid and kind='historical_contribution_credit') <> 1 then raise exception 'bootstrap replay duplicated credit'; end if;
+  if (select count(*) from public.ledger_entries where scenario_id=sid and kind='historical_contribution_credit') <> 0 then raise exception 'unexpected bootstrap replay credit'; end if;
 end $$;
 
 do $$ begin

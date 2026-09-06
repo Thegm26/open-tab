@@ -4,5 +4,5 @@ import { store } from "@/lib/server/store";
 
 export async function GET() {
   const order = await terminalOrder();
-  return json({ order: order ?? null, availablePoolCents: order ? store.availablePoolCents(order.scenarioId) : 0 });
+  return json({ order: order ?? null, availablePoolCents: order ? await store.availablePoolCents(order.scenarioId) : 0 });
 }

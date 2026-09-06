@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 const orders = new Map<string, any>();
-vi.mock("./store", () => ({ store: { getOrder: (id: string) => orders.get(id) } }));
+vi.mock("./store", () => ({ store: { getOrder: (id: string) => orders.get(id), latestOrder: () => [...orders.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] } }));
 
 import { publishTerminalOrder, requireTerminalOrder, terminalOrder } from "./demo-terminal";
 import type { Order } from "../domain/types";
@@ -14,15 +14,21 @@ const order = (id: string, createdAt: string): Order => ({
 });
 
 describe("demo terminal current order", () => {
-  it("returns the newest published order and rejects an older lane", async () => {
+  it("returns the newest durable order and rejects an older lane", async () => {
     const first = order("first", "2026-09-07T10:00:00Z");
     const second = order("second", "2026-09-07T10:01:00Z");
     orders.set(first.id, first); orders.set(second.id, second);
     publishTerminalOrder(first);
-    expect((await terminalOrder())?.id).toBe("first");
-    publishTerminalOrder(second);
     expect((await terminalOrder())?.id).toBe("second");
     await expect(requireTerminalOrder("first")).rejects.toMatchObject({ code: "TERMINAL_ORDER_NOT_FOUND" });
     await expect(requireTerminalOrder("second")).resolves.toMatchObject({ status: "open" });
+  });
+
+  it("recovers the latest order when the process-local pointer is missing", async () => {
+    const recovered = order("recovered", "2026-09-07T10:02:00Z");
+    orders.set(recovered.id, recovered);
+    delete globalThis.openTabDemoTerminal;
+    expect((await terminalOrder())?.id).toBe("recovered");
+    await expect(requireTerminalOrder("recovered")).resolves.toMatchObject({ id: "recovered" });
   });
 });

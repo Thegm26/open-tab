@@ -136,6 +136,10 @@ export class InMemoryOpenTabStore {
     }
     return order;
   }
+  latestOrder(): Order | undefined {
+    const latest = [...this.data.orders.values()].sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0];
+    return latest ? this.getOrder(latest.id) : undefined;
+  }
   listLedger(scenarioId: string): LedgerEntry[] { return this.data.ledger.filter((entry) => entry.scenarioId === scenarioId).map((entry) => this.copy(entry)); }
 
   availablePoolCents(scenarioId: string): number {

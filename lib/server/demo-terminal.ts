@@ -15,6 +15,14 @@ export function publishTerminalOrder(order: Order): void {
 
 export async function terminalOrder(): Promise<Order | undefined> {
   const current = globalThis.openTabDemoTerminal;
+  // Always prefer durable state. A warm Vercel instance can retain an older
+  // process-local pointer after another instance publishes a newer order.
+  try {
+    const order = await store.latestOrder();
+    if (order) return await store.getOrder(order.id);
+  } catch {
+    // Fall back to the process-local pointer during a transient store failure.
+  }
   if (!current) return undefined;
   try {
     const order = await store.getOrder(current.orderId);

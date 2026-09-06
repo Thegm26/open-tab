@@ -30,13 +30,27 @@ export class SupabaseOpenTabStore {
     if (typeof items === "string") {
       try { items = JSON.parse(items); } catch { items = undefined; }
     }
-    return { id: row.id, scenarioId: row.scenario_id, merchantId: row.merchant_id, totalCents: Number(row.total_cents), openTabCents: Number(row.open_tab_cents), customerTenderCents: Number(row.customer_tender_cents), remainingTenderCents: Number(row.remaining_tender_cents), status: row.status, refundableCents: Number(row.refundable_cents), refundedCents: Number(row.refunded_cents), customerRefundedCents: Number(row.customer_refunded_cents), poolRefundedCents: Number(row.pool_refunded_cents), createdAt: new Date(row.created_at), items: Array.isArray(items) && items.length > 0 ? items : undefined };
+    return { id: row.id, scenarioId: row.scenario_id, merchantId: row.merchants?.slug ?? row.merchant_id, totalCents: Number(row.total_cents), openTabCents: Number(row.open_tab_cents), customerTenderCents: Number(row.customer_tender_cents), remainingTenderCents: Number(row.remaining_tender_cents), status: row.status, refundableCents: Number(row.refundable_cents), refundedCents: Number(row.refunded_cents), customerRefundedCents: Number(row.customer_refunded_cents), poolRefundedCents: Number(row.pool_refunded_cents), createdAt: new Date(row.created_at), items: Array.isArray(items) && items.length > 0 ? items : undefined };
   }
   async createOrRecoverScenario(input: { bootstrapSecret: string; idempotencyKey: string }) { if (input.bootstrapSecret.length < 32) throw new DomainError("INVALID_BOOTSTRAP_SECRET"); const out = await this.rpc<{ scenario_id: string }>("ot_bootstrap", { p_bootstrap_hash: hashToken(input.bootstrapSecret), p_bootstrap_secret: input.bootstrapSecret, p_idempotency_key: input.idempotencyKey }); const scenario = await this.getScenario(out.scenario_id); await this.rpc("ot_set_owner_hash", { p_scenario: scenario.id, p_owner_token_hash: hashToken(deriveOwnerToken(scenario.id)) }); return { scenario, ownerToken: deriveOwnerToken(scenario.id), csrfToken: deriveCsrfToken(scenario.id) }; }
   async getScenario(id: string) { const scenario = this.scenarioRow(await this.one("demo_scenarios", id, "SCENARIO_NOT_FOUND")); if (scenario.expiresAt <= new Date()) throw new DomainError("SCENARIO_EXPIRED"); return scenario; }
   async ownerTokenForScenario(id: string) { await this.getScenario(id); return deriveOwnerToken(id); }
   async csrfFor(id: string) { await this.getScenario(id); return deriveCsrfToken(id); }
-  async getOrder(id: string) { return this.orderRow(await this.rpc<any>("ot_get_order", { p_order: id })); }
+  async getOrder(id: string) {
+    const order = this.orderRow(await this.rpc<any>("ot_get_order", { p_order: id }));
+    // ot_get_order returns the FK; the browser catalog uses the merchant slug.
+    if (order.merchantId !== "cafe" && order.merchantId !== "bakery") {
+      const { data, error } = await this.db.from("merchants").select("slug").eq("id", order.merchantId).maybeSingle();
+      if (error) throw new DomainError("PERSISTENCE_ERROR", error.message);
+      if (data?.slug === "cafe" || data?.slug === "bakery") order.merchantId = data.slug;
+    }
+    return order;
+  }
+  async latestOrder(): Promise<Order | undefined> {
+    const { data, error } = await this.db.from("orders").select("id").order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (error) throw new DomainError("PERSISTENCE_ERROR", error.message);
+    return data ? this.getOrder(data.id) : undefined;
+  }
   async createOrder(input: any) { const out = await this.rpc<any>("ot_create_order", { p_scenario: input.scenarioId, p_merchant: input.merchantId, p_total: input.totalCents, p_items: input.items ?? [], p_key: input.idempotencyKey, p_hash: hashToken(JSON.stringify(input.requestFingerprint ?? input)) }); return { order: this.orderRow(out) }.order; }
   async settleRoundup(input: any) { return this.rpc<any>("ot_roundup", { p_order: input.orderId, p_succeeded: input.processorSucceeded, p_accept_roundup: input.acceptRoundup !== false, p_key: input.idempotencyKey, p_hash: hashToken(JSON.stringify(input)) }); }
   async createClaim(input: any) { const order = await this.getOrder(input.orderId); const claimId = randomUUID(); const token = deriveClaimToken(order.scenarioId, claimId, 1); const out = await this.rpc<any>("ot_create_claim", { p_order: input.orderId, p_claim: claimId, p_token_hash: hashToken(token), p_key: input.idempotencyKey, p_hash: hashToken(JSON.stringify(input)) }); const actualClaimId = out.claim_id; return { claimId: actualClaimId, token: deriveClaimToken(out.scenario_id, actualClaimId, 1), expiresAt: new Date(out.expires_at) }; }

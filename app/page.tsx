@@ -32,6 +32,18 @@ const logos = {
 } as const;
 const productIcons: Record<string, string> = { espresso: "☕", dinner: "🍽️", toast: "🍅", lemonade: "🍋", "flat-white": "🥛", "iced-coffee": "🧊", "orange-juice": "🍊", "chicken-salad": "🥗", "pasta-bowl": "🍝", cheesecake: "🍰", croissant: "🥐", lunch: "🥪", sourdough: "🍞", cookie: "🍪", baguette: "🥖", "rye-loaf": "🍞", "cinnamon-roll": "🌀", "veggie-focaccia": "🥬", "iced-tea": "🧋", "hot-chocolate": "☕" };
 const key = () => crypto.randomUUID();
+function claimOrigin() {
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configured) {
+    try {
+      const parsed = new URL(configured);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") return parsed.origin;
+    } catch {
+      // Ignore an invalid override and use the origin serving this page.
+    }
+  }
+  return location.origin;
+}
 function csrfToken(scenarioId: string) {
   const name = `ot_csrf_${scenarioId}=`;
   const cookie = document.cookie
@@ -272,7 +284,10 @@ export default function Home() {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "QR_CREATE_FAILED");
-      setQr(`${location.origin}${d.claimUrl ?? `/claim#${d.token}`}`);
+      // Keep the QR and the visible link byte-for-byte identical. A deployed
+      // NEXT_PUBLIC_APP_URL also lets a terminal running on localhost create a
+      // phone-safe link for the public app.
+      setQr(new URL(d.claimUrl ?? `/claim#${d.token}`, claimOrigin()).toString());
       setMessage("Claim QR is ready to scan.");
     } catch (error) {
       setMessage(
@@ -342,9 +357,10 @@ export default function Home() {
                 <div>
                   <h3>Scan to use Open Tab</h3>
                   <p>
-                    Show this QR code to the customer. We’ll update when they
-                    authorize help.
+                    Scan this code on your phone, choose how much Open Tab
+                    covers, and checkout updates automatically.
                   </p>
+                  {claimOrigin().match(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/) && <p className="qr-local-note">Local preview links only work on this computer. Set <code>NEXT_PUBLIC_APP_URL</code> to your deployed URL before scanning with a phone.</p>}
                   <a href={qr}>Open on another device ↗</a>
                 </div>
               </div>

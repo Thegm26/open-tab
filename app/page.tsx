@@ -41,6 +41,8 @@ function csrfToken(scenarioId: string) {
 }
 type Order = {
   id: string;
+  scenarioId: string;
+  merchantId: string;
   totalCents: number;
   openTabCents: number;
   remainingTenderCents: number;
@@ -83,7 +85,6 @@ export default function Home() {
   const [qr, setQr] = useState("");
   const [dashboard, setDashboard] = useState<Dash>();
   const [loading, setLoading] = useState(false);
-  const [restoredOrder, setRestoredOrder] = useState(false);
   const product = products[merchant][productIndex];
   const refresh = useCallback(async () => {
     if (!scenarioId) return;
@@ -101,23 +102,22 @@ export default function Home() {
     }
   }, [scenarioId]);
   useEffect(() => {
-    if (!isCheckout || restoredOrder) return;
-    const orderId = new URLSearchParams(location.search).get("orderId") ?? sessionStorage.getItem("ot_active_order");
-    const storedScenario = sessionStorage.getItem("ot_active_scenario");
-    if (!orderId || !storedScenario) return;
-    setScenarioId(storedScenario);
-    fetch(`/api/pos/orders/${orderId}/status`, { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("ACTIVE_ORDER_NOT_FOUND");
-        const data = await response.json();
+    if (!isCheckout) return;
+    let active = true;
+    const poll = async () => {
+      const response = await fetch("/api/demo-terminal/current-order", { cache: "no-store" });
+      if (!response.ok || !active) return;
+      const data = await response.json() as { order: Order | null };
+      if (data.order) {
         setOrder(data.order);
-        setRestoredOrder(true);
-      })
-      .catch(() => {
-        sessionStorage.removeItem("ot_active_order");
-        sessionStorage.removeItem("ot_active_scenario");
-      });
-  }, [isCheckout, restoredOrder]);
+        setScenarioId(data.order.scenarioId);
+        if (data.order.merchantId === "cafe" || data.order.merchantId === "bakery") setMerchant(data.order.merchantId);
+      }
+    };
+    poll();
+    const timer = setInterval(poll, 1200);
+    return () => { active = false; clearInterval(timer); };
+  }, [isCheckout]);
   useEffect(() => {
     if (isCheckout) return;
     const storedScenario = sessionStorage.getItem("ot_active_scenario");
@@ -129,16 +129,16 @@ export default function Home() {
   useEffect(() => {
     if (!order || !scenarioId) return;
     const poll = async () => {
-      const r = await fetch(`/api/pos/orders/${order.id}/status`, {
+      const r = await fetch(isCheckout ? `/api/demo-terminal/orders/${order.id}` : `/api/pos/orders/${order.id}/status`, {
         cache: "no-store",
       });
       if (r.ok) setOrder((await r.json()).order);
-      refresh();
+      if (!isCheckout) refresh();
     };
     poll();
     const timer = setInterval(poll, 1500);
     return () => clearInterval(timer);
-  }, [order?.id, scenarioId, refresh]);
+  }, [order?.id, scenarioId, refresh, isCheckout]);
   async function start() {
     setLoading(true);
     setCheckoutError("");
@@ -188,8 +188,6 @@ export default function Home() {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       setOrder(d.order);
-      sessionStorage.setItem("ot_active_order", d.order.id);
-      sessionStorage.setItem("ot_active_scenario", sd.scenario.id);
       setMessage(`Order created · ${money(d.order.totalCents)}.`);
       refresh();
     } catch (error) {
@@ -206,15 +204,15 @@ export default function Home() {
     setLoading(true);
     setMessage("Processing payment…");
     try {
-      const r = await fetch(`/api/pos/orders/${order.id}/${path}`, {
+      const terminalAction = isCheckout && (path === "checkout" || path === "round-up");
+      const r = await fetch(terminalAction ? `/api/demo-terminal/orders/${order.id}` : `/api/pos/orders/${order.id}/${path}`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
           "idempotency-key": key(),
-          "x-csrf-token":
-            csrfToken(scenarioId),
+          ...(terminalAction ? {} : { "x-csrf-token": csrfToken(scenarioId) }),
         },
-        body: body ? JSON.stringify(body) : undefined,
+        body: terminalAction ? JSON.stringify({ action: path, ...(body as object ?? {}) }) : body ? JSON.stringify(body) : undefined,
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? "ORDER_UPDATE_FAILED");
@@ -242,17 +240,18 @@ export default function Home() {
     setLoading(true);
     setMessage("Preparing claim QR…");
     try {
-      const r = await fetch(`/api/pos/orders/${order.id}/claim-session`, {
+      const terminalAction = isCheckout;
+      const r = await fetch(terminalAction ? `/api/demo-terminal/orders/${order.id}` : `/api/pos/orders/${order.id}/claim-session`, {
         method: "POST",
         headers: {
           "idempotency-key": key(),
-          "x-csrf-token":
-            csrfToken(scenarioId),
+          ...(terminalAction ? {} : { "x-csrf-token": csrfToken(scenarioId) }),
         },
+        body: terminalAction ? JSON.stringify({ action: "claim-session" }) : undefined,
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "QR_CREATE_FAILED");
-      setQr(`${location.origin}${d.claimUrl}`);
+      setQr(`${location.origin}${d.claimUrl ?? `/claim#${d.token}`}`);
       setMessage("Claim QR is ready to scan.");
     } catch (error) {
       setMessage(
@@ -274,7 +273,6 @@ export default function Home() {
         <div className="merchant-control">
           <h1 className="page-title">{isCheckout ? "Customer checkout" : "Employee View / Control Panel"}</h1>
           {isCheckout && <a className="button ghost" href="/admin">Employee View</a>}
-          {!isCheckout && order && <a className="button ghost" href={`/checkout?orderId=${encodeURIComponent(order.id)}`} target="_blank" rel="noreferrer">Customer View</a>}
         </div>
       </header>
       {view === "pos" ? (
@@ -316,7 +314,7 @@ export default function Home() {
                   </p>
                 </div>
               )
-            : !order ? null : qr ? (
+            : !order ? <p className="muted terminal-waiting">Waiting for the employee to create a checkout…</p> : qr ? (
               <div className="qr-box">
                 <QRCodeSVG
                   value={qr}
@@ -414,7 +412,7 @@ export default function Home() {
           </div>
         </section>
       ) : (
-        <><section className="admin-order card"><div className="card-heading"><div><h2>Order</h2></div></div><label className="pos-label">Merchant<select className="company-selector" aria-label="Merchant" value={merchant} onChange={(e) => { setMerchant(e.target.value as "cafe" | "bakery"); setProductIndex(0); }}><option value="cafe">Café Sol</option><option value="bakery">Bread &amp; Butter Bakery</option></select></label><label className="pos-label">Product<select value={productIndex} onChange={(e) => setProductIndex(Number(e.target.value))}>{products[merchant].map((item, index) => <option key={item.sku} value={index}>{item.name}</option>)}</select></label><div className="order-preview"><span>{product.name}</span><strong>{money(product.price)}</strong></div><button className="button primary full" onClick={start} disabled={loading}>{loading ? "Opening…" : `Create checkout · ${money(product.price)}`}<span>→</span></button>{checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}</section><Dashboard
+        <><section className="admin-order card"><div className="card-heading"><div><h2>Order</h2></div></div><label className="pos-label">Merchant<select className="company-selector" aria-label="Merchant" value={merchant} onChange={(e) => { setMerchant(e.target.value as "cafe" | "bakery"); setProductIndex(0); }}><option value="cafe">Café Sol</option><option value="bakery">Bread &amp; Butter Bakery</option></select></label><label className="pos-label">Product<select value={productIndex} onChange={(e) => setProductIndex(Number(e.target.value))}>{products[merchant].map((item, index) => <option key={item.sku} value={index}>{item.name}</option>)}</select></label><div className="order-preview"><span>{product.name}</span><strong>{money(product.price)}</strong></div><button className="button primary full" onClick={start} disabled={loading}>{loading ? "Opening…" : `Create checkout · ${money(product.price)}`}<span>→</span></button>{checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}{order && <div className="order-state"><span className={`status-dot ${order.status}`} /><strong>{order.status === "open" ? "Pending" : order.status === "completed" ? "Paid" : order.status.replaceAll("_", " ")}</strong><span className="mono">{money(order.totalCents)}</span></div>}</section><Dashboard
           dashboard={dashboard}
           refresh={refresh}
           notify={setMessage}

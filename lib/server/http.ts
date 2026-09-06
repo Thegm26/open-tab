@@ -33,7 +33,7 @@ export async function rateLimit(request: NextRequest, operation: string, limit: 
 export function json(body: unknown, status = 200, headers: HeadersInit = {}) { return NextResponse.json(body, { status, headers: { ...noStore, ...headers } }); }
 export function error(error: unknown) {
   const code = error instanceof DomainError ? error.code : error instanceof Error ? error.message : "INTERNAL_ERROR";
-  const status = code === "RATE_LIMITED" ? 429 : code === "IDEMPOTENCY_CONFLICT" ? 409 : ["ORDER_CLOSED", "CLAIM_USED", "ORDER_COMPLETED_USE_REFUND", "AUTHORIZATION_EXPIRED"].includes(code) ? 409 : ["SCENARIO_NOT_FOUND", "ORDER_NOT_FOUND", "CLAIM_NOT_FOUND"].includes(code) ? 404 : 400;
+  const status = code === "RATE_LIMITED" ? 429 : code === "IDEMPOTENCY_CONFLICT" ? 409 : ["ORDER_CLOSED", "CLAIM_USED", "ORDER_COMPLETED_USE_REFUND", "AUTHORIZATION_EXPIRED"].includes(code) ? 409 : ["SCENARIO_NOT_FOUND", "ORDER_NOT_FOUND", "CLAIM_NOT_FOUND", "TERMINAL_ORDER_NOT_FOUND"].includes(code) ? 404 : 400;
   return json({ error: code }, status);
 }
 export function key(request: NextRequest): string { return request.headers.get("idempotency-key") ?? ""; }

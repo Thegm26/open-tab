@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { canonicalItems, isMerchantSlug, totalForItems } from "@/lib/domain/catalog";
 import { error, json, key, owner } from "@/lib/server/http";
 import { store } from "@/lib/server/store";
+import { publishTerminalOrder } from "@/lib/server/demo-terminal";
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +12,7 @@ export async function POST(request: NextRequest) {
     const items = canonicalItems(body.merchant, body.items);
     const totalCents = totalForItems(body.merchant, items);
     const order = await store.createOrder({ scenarioId: body.scenarioId, merchantId: body.merchant, totalCents, idempotencyKey: key(request), requestFingerprint: { merchant: body.merchant, items } });
+    publishTerminalOrder(order);
     return json({ order });
   } catch (cause) { return error(cause); }
 }

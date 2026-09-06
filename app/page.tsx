@@ -30,6 +30,7 @@ const logos = {
   cafe: "/cafe-sol-logo.jpg",
   bakery: "/bread-butter-bakery-logo.jpg",
 } as const;
+const productIcons: Record<string, string> = { espresso: "☕", dinner: "🍽️", toast: "🍅", lemonade: "🍋", croissant: "🥐", lunch: "🥪", sourdough: "🍞", cookie: "🍪" };
 const key = () => crypto.randomUUID();
 function csrfToken(scenarioId: string) {
   const name = `ot_csrf_${scenarioId}=`;
@@ -49,6 +50,7 @@ type Order = {
   status: string;
   refundedCents: number;
   customerTenderCents: number;
+  items?: { sku: string; quantity: number; name: string; priceCents: number }[];
 };
 type Dash = {
   pool: { availableCents: number; settledCents: number };
@@ -81,6 +83,7 @@ export default function Home() {
   }, [isCheckout]);
   const [merchant, setMerchant] = useState<"cafe" | "bakery">("cafe");
   const [productIndex, setProductIndex] = useState(0);
+  const [cart, setCart] = useState<Record<string, number>>({});
   const [order, setOrder] = useState<Order>();
   const [contributionCents, setContributionCents] = useState(0);
   const [scenarioId, setScenarioId] = useState("");
@@ -90,6 +93,8 @@ export default function Home() {
   const [dashboard, setDashboard] = useState<Dash>();
   const [loading, setLoading] = useState(false);
   const product = products[merchant][productIndex];
+  const orderProduct = order?.items?.[0] ?? product;
+  const cartTotal = Object.entries(cart).reduce((sum, [sku, quantity]) => sum + (products[merchant].find((item) => item.sku === sku)?.price ?? 0) * quantity, 0);
   const refresh = useCallback(async () => {
     if (!scenarioId) return;
     try {
@@ -186,7 +191,7 @@ export default function Home() {
         body: JSON.stringify({
           scenarioId: sd.scenario.id,
           merchant,
-          items: [{ sku: product.sku, quantity: 1 }],
+          items: Object.entries(cart).map(([sku, quantity]) => ({ sku, quantity })),
         }),
       });
       const d = await r.json();
@@ -245,6 +250,7 @@ export default function Home() {
     setContributionCents(0);
     setCheckoutError("");
     setMessage("Ready for a new checkout.");
+    setCart({});
   }
   async function createQr() {
     if (!order || loading) return;
@@ -299,7 +305,7 @@ export default function Home() {
             {order && (paid || qr || order.status === "authorized") && (
               <div className="card-heading">
                 <div>
-                  <h2>{product.name}</h2>
+                <h2>{orderProduct.name}</h2>
                 </div>
                 <span className="state-badge">{money(order.totalCents)}</span>
               </div>
@@ -319,7 +325,7 @@ export default function Home() {
                   </div>
                   <p>
                     {contributionCents
-                      ? <>Thank you for helping each other <span role="img" aria-label="heart">♥</span></>
+                      ? <>{order.totalCents % 50 === 0 ? `Added ${money(contributionCents)} to Open Tab.` : <>Thank you for helping each other <span role="img" aria-label="heart">♥</span></>}</>
                       : "Payment received."}
                   </p>
                 </div>
@@ -363,10 +369,10 @@ export default function Home() {
             ) : (
               <div className="payment-choice">
                 <div className="customer-order-summary">
-                  <div className="customer-order-line">
-                    <span>{product.name}</span>
-                    <strong>{money(order.totalCents)}</strong>
-                  </div>
+                  {order.items?.length ? order.items.map((item) => <div className="customer-order-line" key={item.sku}>
+                    <span>{item.name}{item.quantity > 1 ? ` × ${item.quantity}` : ""}</span>
+                    <strong>{money(item.priceCents * item.quantity)}</strong>
+                  </div>) : <div className="customer-order-line"><span>{orderProduct.name}</span><strong>{money(order.totalCents)}</strong></div>}
                   <p className="payment-summary">
                     Total due <strong>{money(order.totalCents)}</strong>
                   </p>
@@ -389,9 +395,9 @@ export default function Home() {
                       onClick={() => action("round-up", { succeeded: true, acceptRoundup: true })}
                     >
                       <svg className="payment-tile-icon" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 38S9 29.5 9 19.5C9 14.8 12.5 11 17 11c3.1 0 5.5 1.8 7 4.2 1.5-2.4 3.9-4.2 7-4.2 4.5 0 8 3.8 8 8.5C39 29.5 24 38 24 38Z" fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round"/></svg>
-                      <span className="payment-tile-title">Round up to</span>
+                      <span className="payment-tile-title">{order.totalCents % 50 === 0 ? "Add to Open Tab" : "Round up to"}</span>
                       <strong className="payment-tile-amount">{money(order.totalCents + roundup)}</strong>
-                      <span className="payment-tile-hint"><b>{money(roundup)}</b> goes to Open Tab</span>
+                      <span className="payment-tile-hint">{order.totalCents % 50 === 0 ? <>Pay {money(order.totalCents + roundup)} · <b>{money(roundup)}</b> goes to Open Tab</> : <><b>{money(roundup)}</b> goes to Open Tab</>}</span>
                     </button>
                   </div>
                 )}
@@ -427,7 +433,7 @@ export default function Home() {
           <h2>PAID</h2>
           <p className="paid-amount">{money(order.totalCents)}</p>
           <button className="button primary full" onClick={createNewOrder}>Create new order</button>
-        </section> : <section className="admin-order card"><div className="card-heading"><div><h2>Order</h2></div></div><label className="pos-label">Merchant<select className="company-selector" aria-label="Merchant" value={merchant} onChange={(e) => { setMerchant(e.target.value as "cafe" | "bakery"); setProductIndex(0); }} disabled={activeOrder}><option value="cafe">Café Sol</option><option value="bakery">Bread &amp; Butter Bakery</option></select></label><label className="pos-label">Product<select value={productIndex} onChange={(e) => setProductIndex(Number(e.target.value))} disabled={activeOrder}>{products[merchant].map((item, index) => <option key={item.sku} value={index}>{item.name}</option>)}</select></label><div className="order-preview"><span>{product.name}</span><strong>{money(product.price)}</strong></div>{!activeOrder && <button className="button primary full" onClick={start} disabled={loading}>{loading ? "Opening…" : `Create checkout · ${money(product.price)}`}<span>→</span></button>}{checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}{order && <div className={`order-state order-state-${order.status}`}><span className={`status-dot ${order.status}`} /><strong>{order.status === "open" ? "PENDING" : order.status === "completed" ? "PAID" : order.status.replaceAll("_", " ").toUpperCase()}</strong><span className="mono">{money(order.totalCents)}</span></div>}</section>}<Dashboard
+        </section> : <section className="admin-order card"><div className="card-heading"><div><h2>Order</h2></div></div><label className="pos-label">Merchant<select className="company-selector" aria-label="Merchant" value={merchant} onChange={(e) => { setMerchant(e.target.value as "cafe" | "bakery"); setProductIndex(0); setCart({}); }} disabled={activeOrder}><option value="cafe">Café Sol</option><option value="bakery">Bread &amp; Butter Bakery</option></select></label><div className="product-picker" aria-label="Choose product">{products[merchant].map((item, index) => <button type="button" className={`product-tile${productIndex === index ? " selected" : ""}`} key={item.sku} onClick={() => { setProductIndex(index); if (!activeOrder) setCart((items) => ({ ...items, [item.sku]: (items[item.sku] ?? 0) + 1 })); }} disabled={activeOrder}><span className="product-icon" aria-hidden="true">{productIcons[item.sku]}</span><span>{item.name}</span><strong>{money(item.price)}</strong></button>)}</div><div className="order-preview"><span>Cart total</span><strong>{money(cartTotal)}</strong></div>{Object.entries(cart).map(([sku, quantity]) => { const item = products[merchant].find((candidate) => candidate.sku === sku)!; return <div className="customer-order-line" key={sku}><span>{item.name} × {quantity}</span><strong>{money(item.price * quantity)}</strong><button type="button" className="icon-button" aria-label={`Remove ${item.name}`} onClick={() => setCart((items) => { const next = { ...items }; if (quantity <= 1) delete next[sku]; else next[sku] = quantity - 1; return next; })}>×</button></div>; })}{!activeOrder && Object.keys(cart).length > 0 && <button className="button primary full" onClick={start} disabled={loading}>{loading ? "Opening…" : `Create checkout · ${money(cartTotal)}`}<span>→</span></button>}{checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}{order && <div className={`order-state order-state-${order.status}`}><span className={`status-dot ${order.status}`} /><strong>{order.status === "open" ? "PENDING" : order.status === "completed" ? "PAID" : order.status.replaceAll("_", " ").toUpperCase()}</strong><span className="mono">{money(order.totalCents)}</span></div>}</section>}<Dashboard
           dashboard={dashboard}
           refresh={refresh}
           notify={setMessage}

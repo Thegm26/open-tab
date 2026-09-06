@@ -15,6 +15,13 @@
 .order-state { gap:10px; }
 .order-state .mono { color:var(--ink); font-size:15px; font-weight:800; }
 .order-state-open { margin-top:18px; padding:14px 16px; border:2px solid #d48715; border-radius:12px; background:#fff3d6; color:#7a4300; font-size:16px; font-weight:800; letter-spacing:.04em; }
+.product-picker { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin:16px 0; }
+.product-tile { display:flex; min-height:108px; flex-direction:column; align-items:center; justify-content:center; gap:5px; padding:10px 6px; border:1px solid var(--line); border-radius:12px; background:#fff; color:var(--ink); font-size:11px; font-weight:700; text-align:center; }
+.product-tile:hover,.product-tile.selected { border-color:var(--green); background:var(--mint); }
+.product-icon { font-size:25px; line-height:1; }
+.product-tile strong { font-size:13px; }
+.icon-button { border:0; background:none; color:var(--orange); font-size:20px; line-height:1; }
+@media (max-width:760px) { .product-picker { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 .order-state-open .status-dot { width:10px; height:10px; background:#d48715; box-shadow:0 0 0 4px #f8d99a; }
 
 /* Responsive polish */

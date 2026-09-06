@@ -28,6 +28,14 @@ describe("round-up arithmetic", () => {
 });
 
 describe("Open Tab in-memory lifecycle", () => {
+  it("retains the selected SKU and distinguishes same-price bakery items", () => {
+    const { store, scenario } = setup();
+    const lunch = store.createOrder({ scenarioId: scenario.id, merchantId: "bakery", totalCents: 450, items: [{ sku: "lunch", quantity: 1, name: "Lunch basket", priceCents: 450 }], idempotencyKey: key("201") });
+    const sourdough = store.createOrder({ scenarioId: scenario.id, merchantId: "bakery", totalCents: 450, items: [{ sku: "sourdough", quantity: 1, name: "Sourdough loaf", priceCents: 450 }], idempotencyKey: key("202") });
+    expect(store.getOrder(lunch.id).items?.[0]).toMatchObject({ sku: "lunch", name: "Lunch basket" });
+    expect(store.getOrder(sourdough.id).items?.[0]).toMatchObject({ sku: "sourdough", name: "Sourdough loaf" });
+  });
+
   it("credits a successful server-computed contribution and never credits a decline", () => {
     const { store, scenario } = setup();
     const order = store.createOrder({ scenarioId: scenario.id, merchantId: "cafe", totalCents: 450, idempotencyKey: key("11") });

@@ -43,6 +43,15 @@ export interface Order {
   customerRefundedCents: number;
   poolRefundedCents: number;
   createdAt: Date;
+  /** Canonical catalog lines selected when the order was created. */
+  items?: OrderLineItem[];
+}
+
+export interface OrderLineItem {
+  sku: string;
+  quantity: number;
+  name: string;
+  priceCents: number;
 }
 
 export interface Claim {

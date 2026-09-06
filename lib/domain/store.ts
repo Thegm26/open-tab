@@ -5,7 +5,7 @@ import { systemClock, type Clock } from "./time";
 import {
   type Claim, type DeviceRedemption, DomainError, type IdempotencyRecord, type LedgerEntry,
   type MerchantDebt, type Order, type Policy, type Receivable, type RefundEvent,
-  type Reservation, type Scenario,
+  type Reservation, type Scenario, type OrderLineItem,
 } from "./types";
 
 export const DEFAULT_POLICY: Policy = {
@@ -147,7 +147,7 @@ export class InMemoryOpenTabStore {
     return scenario.settledPoolCents - reserved;
   }
 
-  createOrder(input: { scenarioId: string; merchantId: string; totalCents: number; idempotencyKey: string; requestFingerprint?: unknown }): Order {
+  createOrder(input: { scenarioId: string; merchantId: string; totalCents: number; idempotencyKey: string; requestFingerprint?: unknown; items?: OrderLineItem[] }): Order {
     return this.idempotent(input.scenarioId, "create_order", input.idempotencyKey, input.requestFingerprint ?? input, () => {
       assertCents(input.totalCents, "totalCents");
       if (input.totalCents === 0) throw new DomainError("INVALID_AMOUNT");
@@ -155,6 +155,7 @@ export class InMemoryOpenTabStore {
         id: randomUUID(), scenarioId: input.scenarioId, merchantId: input.merchantId, totalCents: input.totalCents,
         openTabCents: 0, customerTenderCents: input.totalCents, remainingTenderCents: input.totalCents, status: "open", refundableCents: input.totalCents,
         refundedCents: 0, customerRefundedCents: 0, poolRefundedCents: 0, createdAt: this.clock.now(),
+        items: input.items?.map((item) => ({ ...item })),
       };
       this.scenario(input.scenarioId);
       this.data.orders.set(order.id, order);

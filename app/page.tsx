@@ -53,6 +53,23 @@ type Order = {
   customerTenderCents: number;
   items?: { sku: string; quantity: number; name: string; priceCents: number }[];
 };
+const orderStatusRank: Record<string, number> = {
+  open: 0,
+  authorized: 1,
+  completed: 2,
+  partially_refunded: 3,
+  refunded: 4,
+  cancelled: 2,
+  failed: 2,
+  payment_failed: 2,
+  authorization_expired: 2,
+};
+function mergeOrder(previous: Order | undefined, next: Order): Order {
+  // The terminal and status pollers can resolve out of order. Never let an
+  // older in-flight response regress the same order's lifecycle state.
+  if (previous?.id === next.id && (orderStatusRank[previous.status] ?? 0) > (orderStatusRank[next.status] ?? 0)) return previous;
+  return next;
+}
 type Dash = {
   pool: { availableCents: number; settledCents: number };
   contributedCents: number;
@@ -132,7 +149,7 @@ export default function Home() {
             setPaymentKind(undefined);
             setClaim(undefined);
           }
-          return data.order!;
+          return mergeOrder(previous, data.order!);
         });
         setScenarioId(data.order.scenarioId);
         if (data.order.merchantId === "cafe" || data.order.merchantId === "bakery") setMerchant(data.order.merchantId);
@@ -152,16 +169,22 @@ export default function Home() {
   }, [isCheckout, scenarioId, refresh]);
   useEffect(() => {
     if (!order || !scenarioId) return;
+    let active = true;
     const poll = async () => {
       const r = await fetch(isCheckout ? `/api/demo-terminal/orders/${order.id}` : `/api/pos/orders/${order.id}/status`, {
         cache: "no-store",
       });
-      if (r.ok) setOrder((await r.json()).order);
+      if (!active) return;
+      if (r.ok) {
+        const data = await r.json() as { order: Order };
+        if (!active) return;
+        setOrder((previous) => mergeOrder(previous, data.order));
+      }
       if (!isCheckout) refresh();
     };
     poll();
     const timer = setInterval(poll, 1500);
-    return () => clearInterval(timer);
+    return () => { active = false; clearInterval(timer); };
   }, [order?.id, scenarioId, refresh, isCheckout]);
   async function start() {
     setLoading(true);
@@ -249,7 +272,10 @@ export default function Home() {
       const statusResponse = await fetch(`/api/pos/orders/${order.id}/status`, {
         cache: "no-store",
       });
-      if (statusResponse.ok) setOrder((await statusResponse.json()).order);
+      if (statusResponse.ok) {
+        const data = await statusResponse.json() as { order: Order };
+        setOrder((previous) => mergeOrder(previous, data.order));
+      }
       setMessage(
         data.contributionCents
           ? `Round-up added ${money(data.contributionCents)} to the pool.`

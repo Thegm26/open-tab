@@ -374,9 +374,10 @@ export default function Home() {
               <div className="payment-choice">
                 <div className="customer-order-summary">
                   {order.items?.length ? order.items.map((item) => <div className="customer-order-line" key={item.sku}>
-                    <span>{item.name}{item.quantity > 1 ? ` × ${item.quantity}` : ""}</span>
-                    <strong>{money(item.priceCents * item.quantity)}</strong>
-                  </div>) : <div className="customer-order-line"><span>{orderProduct.name}</span><strong>{money(order.totalCents)}</strong></div>}
+                    <span className="customer-item-name">{item.name}</span>
+                    <span className="customer-quantity">{item.quantity}</span>
+                    <strong className="customer-line-price">{money(item.priceCents * item.quantity)}</strong>
+                  </div>) : <div className="customer-order-line"><span className="customer-item-name">{orderProduct.name}</span><span className="customer-quantity">1</span><strong className="customer-line-price">{money(order.totalCents)}</strong></div>}
                   <p className="payment-summary">
                     Total due <strong>{money(order.totalCents)}</strong>
                   </p>

@@ -140,6 +140,8 @@
 
 .workspace { display:flex; justify-content:center; padding:34px 0 48px; }
 .pos-panel.card { width:min(100%, 620px); padding:30px 34px 34px; border:1px solid var(--line); border-radius:22px; background:var(--card); box-shadow:0 14px 36px #294b3914; }
+.card-view-title { margin:0 0 24px; color:var(--ink); font-size:24px; letter-spacing:-.05em; text-align:center; }
+.card-merchant-logo { display:block; margin:0 auto 24px; }
 .checkout-brand { margin:0 auto 30px; text-align:center; }
 .checkout-logo { display:block; width:176px; height:176px; margin:0 auto 14px; object-fit:contain; background:transparent; mix-blend-mode:multiply; }
 .checkout-brand .eyebrow { margin-bottom:5px; }

@@ -290,12 +290,6 @@ export default function Home() {
   const activeOrder = Boolean(order && !["completed", "cancelled", "failed", "refunded"].includes(order.status));
   return (
     <main className="shell">
-      <header className={`topbar${isCheckout ? " checkout-topbar" : ""}`}>
-        <div className="merchant-control">
-          <h1 className="page-title">{isCheckout ? "Customer Checkout" : "Employee View / Control Panel"}</h1>
-          {!isCheckout && <Image className="merchant-route-logo" src={logos[merchant]} alt="" width={132} height={132} priority />}
-        </div>
-      </header>
       {view === "pos" ? (
         <section
           id="counter-panel"
@@ -304,6 +298,7 @@ export default function Home() {
           className="workspace"
         >
           <div className="pos-panel card">
+            <h1 className="card-view-title">Customer Checkout</h1>
             {order && <div className="checkout-brand">
               <Image className="checkout-logo" src={logos[merchant]} alt={`${names[merchant]} logo`} width={176} height={176} priority />
             </div>}
@@ -435,11 +430,13 @@ export default function Home() {
         </section>
       ) : (
         <>{paid ? <section className="admin-order card paid-confirmation" aria-live="polite">
+          <h1 className="card-view-title">Employee View / Control Panel</h1>
+          <Image className="merchant-route-logo card-merchant-logo" src={logos[merchant]} alt="" width={132} height={132} priority />
           <div className="approved-mark">✓</div>
           <h2>PAID</h2>
           <p className="paid-amount">{money(order.totalCents)}</p>
           <button className="button primary full" onClick={createNewOrder}>Create new order</button>
-        </section> : <section className="admin-order card"><div className="card-heading"><div><h2>Order</h2></div></div><div className="product-picker" aria-label="Choose product">{products[merchant].map((item) => <button type="button" className="product-tile" key={item.sku} onClick={() => { if (!activeOrder) setCart((items) => ({ ...items, [item.sku]: (items[item.sku] ?? 0) + 1 })); }} disabled={activeOrder}><span className="product-icon" aria-hidden="true">{productIcons[item.sku]}</span><span>{item.name}</span><strong>{money(item.price)}</strong></button>)}</div>{Object.entries(cart).map(([sku, quantity]) => { const item = products[merchant].find((candidate) => candidate.sku === sku)!; return <div className="cart-line" key={sku}><span className="cart-item-name">{item.name}</span><span className="cart-quantity">{quantity}</span><strong className="cart-price">{money(item.price * quantity)}</strong><button type="button" className="icon-button" aria-label={`Remove one ${item.name}`} onClick={() => setCart((items) => { const next = { ...items }; if (quantity <= 1) delete next[sku]; else next[sku] = quantity - 1; return next; })}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M9 7V5h6v2m-8 0 1 12h6l1-12M10 10v6m4-6v6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></button></div>; })}{!activeOrder && Object.keys(cart).length > 0 && <button className="button primary full" onClick={start} disabled={loading}>{loading ? "Opening…" : `Create checkout · ${money(cartTotal)}`}<span>→</span></button>}{checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}{order && <div className={`order-state order-state-${order.status}`}><span className={`status-dot ${order.status}`} /><strong>{order.status === "open" ? "PENDING" : order.status === "completed" ? "PAID" : order.status.replaceAll("_", " ").toUpperCase()}</strong><span className="mono">{money(order.totalCents)}</span></div>}</section>}<Dashboard
+        </section> : <section className="admin-order card"><h1 className="card-view-title">Employee View / Control Panel</h1><Image className="merchant-route-logo card-merchant-logo" src={logos[merchant]} alt="" width={132} height={132} priority /><div className="card-heading"><div><h2>Order</h2></div></div><div className="product-picker" aria-label="Choose product">{products[merchant].map((item) => <button type="button" className="product-tile" key={item.sku} onClick={() => { if (!activeOrder) setCart((items) => ({ ...items, [item.sku]: (items[item.sku] ?? 0) + 1 })); }} disabled={activeOrder}><span className="product-icon" aria-hidden="true">{productIcons[item.sku]}</span><span>{item.name}</span><strong>{money(item.price)}</strong></button>)}</div>{Object.entries(cart).map(([sku, quantity]) => { const item = products[merchant].find((candidate) => candidate.sku === sku)!; return <div className="cart-line" key={sku}><span className="cart-item-name">{item.name}</span><span className="cart-quantity">{quantity}</span><strong className="cart-price">{money(item.price * quantity)}</strong><button type="button" className="icon-button" aria-label={`Remove one ${item.name}`} onClick={() => setCart((items) => { const next = { ...items }; if (quantity <= 1) delete next[sku]; else next[sku] = quantity - 1; return next; })}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M9 7V5h6v2m-8 0 1 12h6l1-12M10 10v6m4-6v6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></button></div>; })}{!activeOrder && Object.keys(cart).length > 0 && <button className="button primary full" onClick={start} disabled={loading}>{loading ? "Opening…" : `Create checkout · ${money(cartTotal)}`}<span>→</span></button>}{checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}{order && <div className={`order-state order-state-${order.status}`}><span className={`status-dot ${order.status}`} /><strong>{order.status === "open" ? "PENDING" : order.status === "completed" ? "PAID" : order.status.replaceAll("_", " ").toUpperCase()}</strong><span className="mono">{money(order.totalCents)}</span></div>}</section>}<Dashboard
           dashboard={dashboard}
           refresh={refresh}
           notify={setMessage}

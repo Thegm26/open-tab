@@ -118,8 +118,12 @@
 .checkout-brand .eyebrow { margin-bottom:5px; }
 .checkout-brand h1 { margin:0; font-size:30px; letter-spacing:-.05em; }
 .admin-order.card { width:min(100%, 620px); margin:0 auto 28px; padding:30px 34px 34px; border:1px solid var(--line); border-radius:22px; background:var(--card); box-shadow:0 14px 36px #294b3914; }
+.merchant-settings.card { width:min(100%, 620px); margin:0 auto 28px; padding:22px 24px 24px; border:1px solid var(--line); border-radius:18px; background:var(--card); box-shadow:0 8px 24px #294b3910; }
+.merchant-settings .card-heading { margin-bottom:18px; }
+.merchant-settings .eyebrow { margin-bottom:5px; }
+.merchant-settings .pos-label { margin-bottom:0; }
 .admin-order.card .pos-label { color:var(--muted); font-size:12px; font-weight:700; }
 .admin-order.card select { min-height:44px; padding:11px 12px; font-size:16px; font-weight:400; line-height:1.25; }
 .checkout-error { margin:14px 0 0; color:#a33b2b; font-size:13px; line-height:1.4; }
-@media (max-width:760px) { .workspace { padding:24px 0 34px; } .pos-panel.card, .admin-order.card { padding:24px 19px 26px; border-radius:18px; } .checkout-brand { margin-bottom:25px; } .checkout-logo { width:140px; height:140px; } .checkout-brand h1 { font-size:27px; } .roundup { grid-template-columns:1fr; } .roundup-contribution { justify-self:start; } .roundup .action-row { grid-column:auto; flex-direction:column; width:100%; } }
+@media (max-width:760px) { .workspace { padding:24px 0 34px; } .pos-panel.card, .admin-order.card { padding:24px 19px 26px; border-radius:18px; } .merchant-settings.card { padding:20px 19px 22px; border-radius:18px; } .checkout-brand { margin-bottom:25px; } .checkout-logo { width:140px; height:140px; } .checkout-brand h1 { font-size:27px; } .roundup { grid-template-columns:1fr; } .roundup-contribution { justify-self:start; } .roundup .action-row { grid-column:auto; flex-direction:column; width:100%; } }
 @media (max-width:480px) { .payment-tiles { grid-template-columns:1fr; } .payment-tile { min-height:170px; padding:14px; } }

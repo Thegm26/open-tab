@@ -111,23 +111,32 @@ export default function Home() {
     setCheckoutError("");
     setContributionCents(0);
     try {
-      let secret = sessionStorage.getItem("ot_demo_secret");
-      let scenarioKey = sessionStorage.getItem("ot_demo_key");
-      if (!secret) {
-        const bytes = new Uint8Array(32);
-        crypto.getRandomValues(bytes);
-        secret = btoa(String.fromCharCode(...bytes));
-        sessionStorage.setItem("ot_demo_secret", secret);
+      const bootstrap = async () => {
+        let secret = sessionStorage.getItem("ot_demo_secret");
+        let scenarioKey = sessionStorage.getItem("ot_demo_key");
+        if (!secret) {
+          const bytes = new Uint8Array(32);
+          crypto.getRandomValues(bytes);
+          secret = btoa(String.fromCharCode(...bytes));
+          sessionStorage.setItem("ot_demo_secret", secret);
+        }
+        if (!scenarioKey) {
+          scenarioKey = key();
+          sessionStorage.setItem("ot_demo_key", scenarioKey);
+        }
+        return fetch("/api/demo-scenarios", {
+          method: "POST",
+          headers: { "x-demo-bootstrap": secret, "idempotency-key": scenarioKey },
+        });
+      };
+      let s = await bootstrap();
+      let sd = await s.json();
+      if (!s.ok && sd.error === "BOOTSTRAP_EXPIRED") {
+        sessionStorage.removeItem("ot_demo_secret");
+        sessionStorage.removeItem("ot_demo_key");
+        s = await bootstrap();
+        sd = await s.json();
       }
-      if (!scenarioKey) {
-        scenarioKey = key();
-        sessionStorage.setItem("ot_demo_key", scenarioKey);
-      }
-      const s = await fetch("/api/demo-scenarios", {
-        method: "POST",
-        headers: { "x-demo-bootstrap": secret, "idempotency-key": scenarioKey },
-      });
-      const sd = await s.json();
       if (!s.ok) throw new Error(sd.error);
       setScenarioId(sd.scenario.id);
       const r = await fetch("/api/pos/orders", {
@@ -293,7 +302,7 @@ export default function Home() {
                   </div>
                   <p>
                     {contributionCents
-                      ? "Thank you for helping make the next tab possible."
+                      ? <>Thank you for helping each other <span role="img" aria-label="heart">♥</span></>
                       : "Payment received."}
                   </p>
                   <button

@@ -75,6 +75,10 @@ export default function Home() {
   const pathname = usePathname();
   const isCheckout = pathname === "/checkout";
   const view = isCheckout ? "pos" : "dashboard";
+
+  useEffect(() => {
+    document.title = isCheckout ? "OpenTab / Customer" : "Open Tab / Employee";
+  }, [isCheckout]);
   const [merchant, setMerchant] = useState<"cafe" | "bakery">("cafe");
   const [productIndex, setProductIndex] = useState(0);
   const [order, setOrder] = useState<Order>();
@@ -268,11 +272,9 @@ export default function Home() {
   const paid = order?.status === "completed";
   return (
     <main className="shell">
-      <header className="topbar">
-        {isCheckout && <Image className="brand-symbol" src="/open-tab-symbol.png" alt="Open Tab" width={42} height={42} priority />}
+      <header className={`topbar${isCheckout ? " checkout-topbar" : ""}`}>
         <div className="merchant-control">
-          <h1 className="page-title">{isCheckout ? "Customer checkout" : "Employee View / Control Panel"}</h1>
-          {isCheckout && <a className="button ghost" href="/admin">Employee View</a>}
+          <h1 className="page-title">{isCheckout ? "Customer Checkout" : "Employee View / Control Panel"}</h1>
         </div>
       </header>
       {view === "pos" ? (

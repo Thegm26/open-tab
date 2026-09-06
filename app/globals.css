@@ -45,6 +45,7 @@
   .shell { padding:18px 15px 28px; }
   .topbar { gap:14px; margin-bottom:0; }
   .merchant-control { width:100%; align-items:flex-start; flex-direction:column; gap:7px; }
+  .checkout-topbar .merchant-control { align-items:center; }
   .brand-symbol { align-self:flex-start; }
   .merchant-picker { width:100%; }
   .merchant-control .company-selector { width:min(100%, 260px); }

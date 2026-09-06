@@ -134,6 +134,11 @@
 .inline-claim-heading p { margin:0; color:var(--muted); font-size:13px; }
 .inline-claim-heading > strong { color:var(--green); font-size:13px; white-space:nowrap; }
 .inline-claim .pos-label { color:var(--muted); }
+.claim-presets { display:grid; grid-template-columns:repeat(auto-fit,minmax(82px,1fr)); gap:8px; }
+.claim-preset { display:flex; min-height:64px; flex-direction:column; justify-content:center; gap:3px; padding:8px 6px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); }
+.claim-preset span { color:var(--muted); font-size:11px; font-weight:700; }
+.claim-preset strong { font-size:15px; }
+.claim-preset.selected { border-color:var(--green); background:var(--mint); box-shadow:inset 0 0 0 1px var(--green); }
 .receipt { padding:18px 0 6px; text-align:center; }
 .receipt p { color:var(--muted); }
 .approved-mark { display:grid; place-items:center; width:52px; height:52px; margin:0 auto 14px; border-radius:50%; background:var(--mint); color:var(--green); font-size:28px; font-weight:800; }

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { CATALOG } from "@/lib/domain/catalog";
+import { claimPresets } from "@/lib/domain/claim-presets";
 
 const money = (c = 0) => `€${(c / 100).toFixed(2)}`;
 const roundUp = (total: number) => {
@@ -89,7 +90,7 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [checkoutError, setCheckoutError] = useState("");
   const [availablePoolCents, setAvailablePoolCents] = useState(0);
-  const [claim, setClaim] = useState<{ remainingCents: number; amountCents: number }>();
+  const [claim, setClaim] = useState<{ remainingCents: number; amountCents: number; presets: ReturnType<typeof claimPresets> }>();
   const [dashboard, setDashboard] = useState<Dash>();
   const [loading, setLoading] = useState(false);
   useEffect(() => {
@@ -283,7 +284,7 @@ export default function Home() {
       const inspectData = await inspect.json();
       if (!inspect.ok) throw new Error(inspectData.error ?? "CLAIM_INSPECT_FAILED");
       const max = Math.min(sessionData.order.remainingTenderCents, availablePoolCents, inspectData.limits.perOrderCents);
-      setClaim({ remainingCents: max, amountCents: Math.min(100, max) });
+      setClaim({ remainingCents: max, amountCents: 0, presets: claimPresets(availablePoolCents, sessionData.order.remainingTenderCents, inspectData.limits.perOrderCents) });
       setMessage("");
     } catch (error) {
       setMessage(
@@ -299,6 +300,16 @@ export default function Home() {
     : roundUp(product.price);
   const paid = order?.status === "completed";
   const activeOrder = Boolean(order && !["completed", "cancelled", "failed", "refunded"].includes(order.status));
+  const customerOrderSummary = order ? (
+    <div className="customer-order-summary">
+      {order.items?.length ? order.items.map((item) => <div className="customer-order-line" key={item.sku}>
+        <span className="customer-item-name">{item.name}</span>
+        <span className="customer-quantity">{item.quantity}</span>
+        <strong className="customer-line-price">{money(item.priceCents * item.quantity)}</strong>
+      </div>) : <div className="customer-order-line"><span className="customer-item-name">Order total</span><span className="customer-quantity">—</span><strong className="customer-line-price">{money(order.totalCents)}</strong></div>}
+      <p className="payment-summary">Total due <strong>{money(order.totalCents)}</strong></p>
+    </div>
+  ) : null;
   return (
     <main className="shell">
       {view === "pos" ? (
@@ -313,14 +324,6 @@ export default function Home() {
             {order && <div className="checkout-brand">
               <Image className="checkout-logo" src={logos[merchant]} alt={`${names[merchant]} logo`} width={176} height={176} priority />
             </div>}
-            {order && (paid || claim || order.status === "authorized") && (
-              <div className="card-heading">
-                <div>
-                <h2>{orderTitle}</h2>
-                </div>
-                <span className="state-badge">{money(order.totalCents)}</span>
-              </div>
-            )}
             {paid ? (
                 <div className="receipt">
                     <div className="approved-mark">✓</div>
@@ -342,13 +345,25 @@ export default function Home() {
                 </div>
               )
             : !order ? <p className="muted terminal-waiting">Waiting for the employee to create a checkout…</p> : claim ? (
-              <div className="inline-claim">
+              <>{customerOrderSummary}<div className="inline-claim">
                 <div className="inline-claim-heading"><div><h3>Use Open Tab</h3><p>Choose how much Open Tab covers.</p></div><strong>{money(claim.remainingCents)} available</strong></div>
-                <label className="pos-label" htmlFor="claim-amount">Open Tab amount (€)<input id="claim-amount" type="number" min="0.01" max={(claim.remainingCents / 100).toFixed(2)} step="0.01" value={(claim.amountCents / 100).toFixed(2)} onChange={(event) => setClaim({ ...claim, amountCents: Math.min(claim.remainingCents, Math.max(1, Math.round(Number(event.target.value) * 100))) })} /></label>
+                <div className="claim-presets" role="group" aria-label="Choose Open Tab amount">
+                  {claim.presets.map((preset) => (
+                    <button
+                      key={preset.amountCents}
+                      type="button"
+                      className={`claim-preset ${claim.amountCents === preset.amountCents ? "selected" : ""}`}
+                      aria-pressed={claim.amountCents === preset.amountCents}
+                      onClick={() => preset.amountCents === 0 ? (setClaim(undefined), setMessage("Open Tab skipped.")) : setClaim({ ...claim, amountCents: preset.amountCents })}
+                    >
+                      <span>{preset.label}</span><strong>{money(preset.amountCents)}</strong>
+                    </button>
+                  ))}
+                </div>
                 <button className="button primary full" disabled={loading || claim.amountCents < 1} onClick={async () => { setLoading(true); setMessage("Applying Open Tab…"); try { const response = await fetch("/api/claims/authorize", { method: "POST", headers: { "content-type": "application/json", origin: location.origin, "idempotency-key": key() }, body: JSON.stringify({ amountCents: claim.amountCents }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error ?? "OPEN_TAB_FAILED"); const status = await fetch(`/api/demo-terminal/orders/${order.id}`, { cache: "no-store" }); if (status.ok) setOrder((await status.json()).order); setClaim(undefined); setMessage(`Open Tab covered ${money(data.amountCents)}.`); } catch (error) { setMessage(error instanceof Error ? error.message : "Open Tab failed."); } finally { setLoading(false); } }}>Apply Open Tab · {money(claim.amountCents)}</button>
-              </div>
+              </div></>
             ) : order.status === "authorized" ? (
-              <div className="payment-choice">
+              <>{customerOrderSummary}<div className="payment-choice">
                 <p>
                   <strong>
                     {money(order.openTabCents)} covered by Open Tab.
@@ -364,19 +379,10 @@ export default function Home() {
                     ? "Processing…"
                     : `Pay remaining ${money(order.remainingTenderCents)}`}
                 </button>
-              </div>
+              </div></>
             ) : (
               <div className="payment-choice">
-                <div className="customer-order-summary">
-                  {order.items?.length ? order.items.map((item) => <div className="customer-order-line" key={item.sku}>
-                    <span className="customer-item-name">{item.name}</span>
-                    <span className="customer-quantity">{item.quantity}</span>
-                    <strong className="customer-line-price">{money(item.priceCents * item.quantity)}</strong>
-                  </div>) : <div className="customer-order-line"><span className="customer-item-name">Order total</span><span className="customer-quantity">—</span><strong className="customer-line-price">{money(order.totalCents)}</strong></div>}
-                  <p className="payment-summary">
-                    Total due <strong>{money(order.totalCents)}</strong>
-                  </p>
-                </div>
+                {customerOrderSummary}
                 {roundup > 0 && (
                   <div className="payment-tiles" aria-label="Choose payment amount">
                     <button

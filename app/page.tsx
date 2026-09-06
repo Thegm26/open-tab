@@ -5,6 +5,10 @@ import { QRCodeSVG } from "qrcode.react";
 import { CATALOG } from "@/lib/domain/catalog";
 
 const money = (c = 0) => `€${(c / 100).toFixed(2)}`;
+const roundUp = (total: number, fixed: number) => {
+  const centsIntoEuro = total % 100;
+  return centsIntoEuro === 0 || centsIntoEuro === 50 ? fixed : 100 - centsIntoEuro;
+};
 const products = {
   cafe: CATALOG.cafe.items.map((item) => ({
     name: item.name,
@@ -42,6 +46,7 @@ type Order = {
   status: string;
   refundedCents: number;
   customerTenderCents: number;
+  roundupContributionCents: number;
 };
 type Dash = {
   pool: { availableCents: number; settledCents: number };
@@ -67,6 +72,7 @@ type Dash = {
 export default function Home() {
   const [view, setView] = useState<"pos" | "dashboard">("dashboard");
   const [merchant, setMerchant] = useState<"cafe" | "bakery">("cafe");
+  const [merchantRoundup, setMerchantRoundup] = useState<Record<"cafe" | "bakery", number>>({ cafe: 20, bakery: 20 });
   const [productIndex, setProductIndex] = useState(0);
   const [order, setOrder] = useState<Order>();
   const [contributionCents, setContributionCents] = useState(0);
@@ -148,6 +154,7 @@ export default function Home() {
         body: JSON.stringify({
           scenarioId: sd.scenario.id,
           merchant,
+          roundupContributionCents: merchantRoundup[merchant],
           items: [{ sku: product.sku, quantity: 1 }],
         }),
       });
@@ -229,8 +236,8 @@ export default function Home() {
   }
 
   const roundup = order
-    ? (50 - (order.totalCents % 50)) % 50
-    : (50 - (product.price % 50)) % 50;
+    ? roundUp(order.totalCents, order.roundupContributionCents)
+    : roundUp(product.price, merchantRoundup[merchant]);
   const paid = order?.status === "completed";
   return (
     <main className="shell">
@@ -404,7 +411,7 @@ export default function Home() {
           </div>
         </section>
       ) : (
-        <><section className="admin-order card"><div className="card-heading"><div><h2>Order</h2></div></div><label className="pos-label">Merchant<select className="company-selector" aria-label="Merchant" value={merchant} onChange={(e) => { setMerchant(e.target.value as "cafe" | "bakery"); setProductIndex(0); }}><option value="cafe">Café Sol</option><option value="bakery">Bread &amp; Butter Bakery</option></select></label><label className="pos-label">Product<select value={productIndex} onChange={(e) => setProductIndex(Number(e.target.value))}>{products[merchant].map((item, index) => <option key={item.sku} value={index}>{item.name}</option>)}</select></label><div className="order-preview"><span>{product.name}</span><strong>{money(product.price)}</strong></div><button className="button primary full" onClick={start} disabled={loading}>{loading ? "Opening…" : `Create checkout · ${money(product.price)}`}<span>→</span></button>{checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}</section><Dashboard
+        <><section className="admin-order card"><div className="card-heading"><div><h2>Order</h2></div></div><label className="pos-label">Merchant<select className="company-selector" aria-label="Merchant" value={merchant} onChange={(e) => { setMerchant(e.target.value as "cafe" | "bakery"); setProductIndex(0); }}><option value="cafe">Café Sol</option><option value="bakery">Bread &amp; Butter Bakery</option></select></label><label className="pos-label">Product<select value={productIndex} onChange={(e) => setProductIndex(Number(e.target.value))}>{products[merchant].map((item, index) => <option key={item.sku} value={index}>{item.name}</option>)}</select></label><label className="pos-label">Customer contribution<select value={merchantRoundup[merchant]} onChange={(e) => setMerchantRoundup((current) => ({ ...current, [merchant]: Number(e.target.value) }))}><option value={10}>€0.10</option><option value={20}>€0.20</option><option value={50}>€0.50</option><option value={100}>€1.00</option></select></label><div className="order-preview"><span>{product.name}</span><strong>{money(product.price)}</strong></div><button className="button primary full" onClick={start} disabled={loading}>{loading ? "Opening…" : `Create checkout · ${money(product.price)}`}<span>→</span></button>{checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}</section><Dashboard
           dashboard={dashboard}
           refresh={refresh}
           notify={setMessage}

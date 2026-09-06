@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { deriveClaimToken, deriveOwnerToken, hashToken } from "./credentials";
-import { assertCents, roundUpContributionCents } from "./money";
+import { assertCents, assertRoundupContributionCents, roundUpContributionCents, type RoundupContributionCents } from "./money";
 import { systemClock, type Clock } from "./time";
 import {
   type Claim, type DeviceRedemption, DomainError, type IdempotencyRecord, type LedgerEntry,
@@ -147,12 +147,14 @@ export class InMemoryOpenTabStore {
     return scenario.settledPoolCents - reserved;
   }
 
-  createOrder(input: { scenarioId: string; merchantId: string; totalCents: number; idempotencyKey: string; requestFingerprint?: unknown }): Order {
+  createOrder(input: { scenarioId: string; merchantId: string; totalCents: number; roundupContributionCents?: number; idempotencyKey: string; requestFingerprint?: unknown }): Order {
     return this.idempotent(input.scenarioId, "create_order", input.idempotencyKey, input.requestFingerprint ?? input, () => {
       assertCents(input.totalCents, "totalCents");
+      const roundupContributionCents = input.roundupContributionCents ?? 20;
+      assertRoundupContributionCents(roundupContributionCents);
       if (input.totalCents === 0) throw new DomainError("INVALID_AMOUNT");
       const order: Order = {
-        id: randomUUID(), scenarioId: input.scenarioId, merchantId: input.merchantId, totalCents: input.totalCents,
+        id: randomUUID(), scenarioId: input.scenarioId, merchantId: input.merchantId, totalCents: input.totalCents, roundupContributionCents,
         openTabCents: 0, customerTenderCents: input.totalCents, remainingTenderCents: input.totalCents, status: "open", refundableCents: input.totalCents,
         refundedCents: 0, customerRefundedCents: 0, poolRefundedCents: 0, createdAt: this.clock.now(),
       };
@@ -167,7 +169,7 @@ export class InMemoryOpenTabStore {
     return this.idempotent(order.scenarioId, "roundup", input.idempotencyKey, input, () => {
       if (order.status !== "open") throw new DomainError("ORDER_CLOSED");
       if (!input.processorSucceeded) { order.status = "payment_failed"; return { contributionCents: 0, status: "DECLINED" }; }
-      const contributionCents = input.acceptRoundup === false ? 0 : roundUpContributionCents(order.totalCents);
+      const contributionCents = input.acceptRoundup === false ? 0 : roundUpContributionCents(order.totalCents, order.roundupContributionCents as RoundupContributionCents);
       order.status = "completed";
       order.remainingTenderCents = 0;
       if (contributionCents > 0) {

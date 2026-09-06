@@ -32,6 +32,7 @@ export interface Order {
   scenarioId: Id;
   merchantId: Id;
   totalCents: number;
+  roundupContributionCents: number;
   openTabCents: number;
   /** Contracted customer portion; immutable after authorization. */
   customerTenderCents: number;

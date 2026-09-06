@@ -75,7 +75,6 @@ export default function Home() {
   const [checkoutError, setCheckoutError] = useState("");
   const [qr, setQr] = useState("");
   const [dashboard, setDashboard] = useState<Dash>();
-  const [refund, setRefund] = useState(100);
   const [loading, setLoading] = useState(false);
   const product = products[merchant][productIndex];
   const refresh = useCallback(async () => {
@@ -407,10 +406,6 @@ export default function Home() {
       ) : (
         <><section className="admin-order card"><div className="card-heading"><div><h2>Order</h2></div></div><label className="pos-label">Merchant<select className="company-selector" aria-label="Merchant" value={merchant} onChange={(e) => { setMerchant(e.target.value as "cafe" | "bakery"); setProductIndex(0); }}><option value="cafe">Café Sol</option><option value="bakery">Bread &amp; Butter Bakery</option></select></label><label className="pos-label">Product<select value={productIndex} onChange={(e) => setProductIndex(Number(e.target.value))}>{products[merchant].map((item, index) => <option key={item.sku} value={index}>{item.name}</option>)}</select></label><div className="order-preview"><span>{product.name}</span><strong>{money(product.price)}</strong></div><button className="button primary full" onClick={start} disabled={loading}>{loading ? "Opening…" : `Create checkout · ${money(product.price)}`}<span>→</span></button>{checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}</section><Dashboard
           dashboard={dashboard}
-          order={order}
-          refund={refund}
-          setRefund={setRefund}
-          action={action}
           refresh={refresh}
           notify={setMessage}
         /></>
@@ -424,18 +419,10 @@ export default function Home() {
 
 function Dashboard({
   dashboard,
-  order,
-  refund,
-  setRefund,
-  action,
   refresh,
   notify,
 }: {
   dashboard?: Dash;
-  order?: Order;
-  refund: number;
-  setRefund: (value: number) => void;
-  action: (path: string, body?: unknown) => void;
   refresh: () => void;
   notify: (message: string) => void;
 }) {
@@ -499,59 +486,21 @@ function Dashboard({
           tone="green"
         />
         <Metric
-          label="Contributed this demo"
+          label="Contributed"
           value={money(dashboard.contributedCents)}
         />
         <Metric
-          label="Completed helped"
+          label="People helped"
           value={String(dashboard.completedHelpedCount)}
-        />
-        <Metric
-          label="Settlement state"
-          value={
-            dashboard.receivables.some((r) => r.status === "unsettled")
-              ? "Ready"
-              : "Clear"
-          }
-          tone="amber"
         />
       </div>
       <div className="dash-grid">
         <section className="card">
           <div className="card-heading">
             <div>
-              <p className="eyebrow">POOL HEALTH</p>
-              <h2>Available right now</h2>
+              <h2>Activity</h2>
             </div>
-            <span className="state-badge">
-              {dashboard.scenario.activated ? "Active" : "Building"}
-            </span>
-          </div>
-          <div className="pool-number">
-            {money(dashboard.pool.availableCents)}
-            <small> available pool</small>
-          </div>
-          <div className="progress">
-            <span
-              style={{
-                width: `${Math.min(100, dashboard.pool.availableCents / 30)}%`,
-              }}
-            />
-          </div>
-          <p className="muted">
-            Funds are reserved only after a customer authorizes help. Expired
-            reservations return automatically.
-          </p>
-        </section>
-        <section className="card">
-          <div className="card-heading">
-            <div>
-              <p className="eyebrow">ACTIVITY</p>
-              <h2>Recent movement</h2>
-            </div>
-            <button className="text-button" onClick={refresh}>
-              Refresh ↻
-            </button>
+            <button className="text-button" onClick={refresh} aria-label="Refresh activity">↻</button>
           </div>
           {activity.length ? (
             <div className="activity">
@@ -583,7 +532,7 @@ function Dashboard({
           )}
         </section>
       </div>
-      <section className="card settlement-card">
+      {(dashboard.receivables.length > 0 || dashboard.debts.length > 0) && <section className="card settlement-card">
         <div className="card-heading">
           <div>
             <p className="eyebrow">SETTLEMENT & RECOVERY</p>
@@ -593,8 +542,7 @@ function Dashboard({
             {dashboard.completedHelpedCount} assisted purchases
           </span>
         </div>
-        {dashboard.receivables.length ? (
-          dashboard.receivables.map((receivable) => (
+        {dashboard.receivables.map((receivable) => (
             <div className="settlement-row" key={receivable.id}>
               <div>
                 <strong>Purchase {receivable.id.slice(0, 6)}</strong>
@@ -616,12 +564,7 @@ function Dashboard({
                 Settle
               </button>
             </div>
-          ))
-        ) : (
-          <p className="muted">
-            Complete an assisted order to create a receivable.
-          </p>
-        )}
+          ))}
         {dashboard.debts.length > 0 && (
           <>
             <div className="card-heading recovery-heading">
@@ -651,29 +594,7 @@ function Dashboard({
             ))}
           </>
         )}
-        {order &&
-          ["completed", "partially_refunded"].includes(order.status) && (
-            <div className="refund-control">
-              <label>
-                Simulate cumulative refund
-                <input
-                  type="number"
-                  min="1"
-                  value={refund}
-                  onChange={(e) => setRefund(Number(e.target.value))}
-                />
-              </label>
-              <button
-                className="button secondary"
-                onClick={() =>
-                  action("refund", { amountCents: refund, externalId: key() })
-                }
-              >
-                Issue refund {money(refund)}
-              </button>
-            </div>
-          )}
-      </section>
+      </section>}
     </div>
   );
 }

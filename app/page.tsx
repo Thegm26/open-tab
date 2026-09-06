@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { CATALOG } from "@/lib/domain/catalog";
 
@@ -70,7 +71,10 @@ type Dash = {
 };
 
 export default function Home() {
-  const [view, setView] = useState<"pos" | "dashboard">("dashboard");
+  const pathname = usePathname();
+  const router = useRouter();
+  const isCheckout = pathname === "/checkout";
+  const view = isCheckout ? "pos" : "dashboard";
   const [merchant, setMerchant] = useState<"cafe" | "bakery">("cafe");
   const [merchantRoundup, setMerchantRoundup] = useState<Record<"cafe" | "bakery", number>>({ cafe: 20, bakery: 20 });
   const [productIndex, setProductIndex] = useState(0);
@@ -82,6 +86,7 @@ export default function Home() {
   const [qr, setQr] = useState("");
   const [dashboard, setDashboard] = useState<Dash>();
   const [loading, setLoading] = useState(false);
+  const [restoredOrder, setRestoredOrder] = useState(false);
   const product = products[merchant][productIndex];
   const refresh = useCallback(async () => {
     if (!scenarioId) return;
@@ -98,6 +103,32 @@ export default function Home() {
       );
     }
   }, [scenarioId]);
+  useEffect(() => {
+    if (!isCheckout || restoredOrder) return;
+    const orderId = new URLSearchParams(location.search).get("orderId") ?? sessionStorage.getItem("ot_active_order");
+    const storedScenario = sessionStorage.getItem("ot_active_scenario");
+    if (!orderId || !storedScenario) return;
+    setScenarioId(storedScenario);
+    fetch(`/api/pos/orders/${orderId}/status`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("ACTIVE_ORDER_NOT_FOUND");
+        const data = await response.json();
+        setOrder(data.order);
+        setRestoredOrder(true);
+      })
+      .catch(() => {
+        sessionStorage.removeItem("ot_active_order");
+        sessionStorage.removeItem("ot_active_scenario");
+      });
+  }, [isCheckout, restoredOrder]);
+  useEffect(() => {
+    if (isCheckout) return;
+    const storedScenario = sessionStorage.getItem("ot_active_scenario");
+    if (storedScenario) setScenarioId(storedScenario);
+  }, [isCheckout]);
+  useEffect(() => {
+    if (!isCheckout && scenarioId) refresh();
+  }, [isCheckout, scenarioId, refresh]);
   useEffect(() => {
     if (!order || !scenarioId) return;
     const poll = async () => {
@@ -161,7 +192,9 @@ export default function Home() {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       setOrder(d.order);
-      setView("pos");
+      sessionStorage.setItem("ot_active_order", d.order.id);
+      sessionStorage.setItem("ot_active_scenario", sd.scenario.id);
+      router.push(`/checkout?orderId=${encodeURIComponent(d.order.id)}`);
       setMessage(`Checkout opened for ${money(d.order.totalCents)}.`);
       refresh();
     } catch (error) {
@@ -242,36 +275,9 @@ export default function Home() {
   return (
     <main className="shell">
       <header className="topbar">
-        <div
-          className="view-switch"
-          role="tablist"
-          aria-label="Application view"
-        >
-          <button
-            id="counter-tab"
-            role="tab"
-            aria-selected={view === "pos"}
-            aria-controls="counter-panel"
-            className={view === "pos" ? "active" : ""}
-            onClick={() => setView("pos")}
-            disabled={!order}
-            aria-disabled={!order}
-          >
-            Customer
-          </button>
-          <button
-            id="dashboard-tab"
-            role="tab"
-            aria-selected={view === "dashboard"}
-            aria-controls="dashboard-panel"
-            className={view === "dashboard" ? "active" : ""}
-            onClick={() => {
-              setView("dashboard");
-              refresh();
-            }}
-          >
-            Admin
-          </button>
+        <div className="merchant-control">
+          <span>{isCheckout ? "Customer checkout" : "Admin"}</span>
+          {isCheckout && <a className="button ghost" href="/admin">Admin</a>}
         </div>
       </header>
       {view === "pos" ? (
